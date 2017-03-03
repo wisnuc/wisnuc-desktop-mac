@@ -1,0 +1,17 @@
+language: node_js
+node_js:
+    - "node"
+    - "6"
+install:
+    - cd /
+    - mkdir git
+    - git clone https://github.com/wisnuc/fruitmix-desktop.git
+    - cd fruitmix-desktop
+    - git checkout transimission
+    - npm install electron-prebuilt --save-dev
+    - npm install electron-builder webpack
+    - npm install
+    - webpack
+    - npm run build
+script:
+    - ./node_modules/.bin/build --config ./electron-builder.yml --mac
