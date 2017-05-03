@@ -1,11 +1,10 @@
 environment:
   nodejs_version: "6"
   skip_tags: false
+  on:
+    appveyor_repo_tag: true
 
 install:
-  - git checkout transimission
-  - npm install electron-builder
-  - npm uninstall babel
   - npm install
   - ./node_modules/.bin/webpack -p
   - npm run build
@@ -30,9 +29,8 @@ deploy:
     auth_token:
       secure: 'vj997csmzYo+h1Vf9o87CjWj18njqemEDUfhGMqLjPpGYlsgD1IXlmhVGGJbzG31'
       
-    on:
-      #branch: master
-      appveyor_repo_tag: true
-
-    #release: fruitmixDesktop-v$(appveyor_build_version)
-    #description: 'Release test'
+#     on:
+#      branch: master
+#      appveyor_repo_tag: true
+#   release: wisnucAssistant-v$(appveyor_build_version)
+#   description: 'Release test'
