@@ -4,6 +4,8 @@ environment:
 
 install:
   - git checkout transimission
+  - npm install electron-prebuilt --save-dev
+  - npm install electron-builder --save
   - npm install
   - ./node_modules/.bin/webpack -p
   - npm run build
