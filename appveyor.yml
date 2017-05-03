@@ -31,8 +31,8 @@ deploy:
       secure: 'vj997csmzYo+h1Vf9o87CjWj18njqemEDUfhGMqLjPpGYlsgD1IXlmhVGGJbzG31'
       
     on:
-      branch: master
-      appveyor_repo_tag: true
+      #branch: master
+      #appveyor_repo_tag: true
 
     release: fruitmixDesktop-v$(appveyor_build_version)
-    description: 'Release test'
+    #description: 'Release test'
