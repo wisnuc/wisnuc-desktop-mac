@@ -1,10 +1,9 @@
 environment:
   nodejs_version: "6"
   skip_tags: false
-  on:
-    appveyor_repo_tag: true
 
 install:
+  - git checkout transimission
   - npm install
   - ./node_modules/.bin/webpack -p
   - npm run build
@@ -29,8 +28,8 @@ deploy:
     auth_token:
       secure: 'vj997csmzYo+h1Vf9o87CjWj18njqemEDUfhGMqLjPpGYlsgD1IXlmhVGGJbzG31'
       
-#     on:
-#      branch: master
+    on:
+      branch: transimission
 #      appveyor_repo_tag: true
-#   release: wisnucAssistant-v$(appveyor_build_version)
+    release: wisnucAssistant-v$(appveyor_build_version)
 #   description: 'Release test'
