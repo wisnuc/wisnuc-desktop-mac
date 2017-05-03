@@ -15,7 +15,7 @@ install:
     - npm install electron-prebuilt --save-dev
     - npm install electron-builder webpack
     - npm install
-    - webpack
+    - ./node_modules/.bin/webpack -p
     - npm run build
 script:
-    - ./node_modules/.bin/build --config ./electron-builder.yml --mac
+    - ./node_modules/.bin/build --config ./electron-builder.yml --linux
