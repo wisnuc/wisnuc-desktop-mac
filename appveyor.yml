@@ -1,0 +1,36 @@
+environment:
+  nodejs_version: "6"
+  skip_tags: false
+
+install:
+  - git checkout transimission
+  - npm install
+  - ./node_modules/.bin/webpack -p
+  - npm run build
+
+build: off
+
+build_script:
+  - ./node_modules/.bin/build --config ./electron-builder.yml --win
+
+test: off
+
+artifacts:
+  - path: ./dist/testApp*
+    name: testApp
+
+deploy:
+  - provider: GitHub
+    artifact: testApp
+    draft: false
+    prerelease: false
+    
+    auth_token:
+      secure: 'vj997csmzYo+h1Vf9o87CjWj18njqemEDUfhGMqLjPpGYlsgD1IXlmhVGGJbzG31'
+      
+    on:
+      branch: transimission
+      appveyor_repo_tag: true
+
+    release: fruitmixDesktop-v$(appveyor_build_version)
+    description: 'Release test'
