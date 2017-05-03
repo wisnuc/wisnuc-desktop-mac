@@ -4,6 +4,8 @@ environment:
 
 install:
   - git checkout transimission
+  - npm install electron-builder
+  - npm uninstall babel
   - npm install
   - ./node_modules/.bin/webpack -p
   - npm run build
@@ -29,7 +31,7 @@ deploy:
       secure: 'vj997csmzYo+h1Vf9o87CjWj18njqemEDUfhGMqLjPpGYlsgD1IXlmhVGGJbzG31'
       
     on:
-      branch: transimission
-#      appveyor_repo_tag: true
-    release: wisnucAssistant-v$(appveyor_build_version)
+#     branch: transimission
+      appveyor_repo_tag: true
+#   release: wisnucAssistant-v$(appveyor_build_version)
 #   description: 'Release test'
