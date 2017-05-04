@@ -4,7 +4,7 @@ environment:
 
 install:
   - git checkout transimission
-  - npm install electron-builder
+  - npm install electron-builder electron-log
   - npm uninstall babel
   - npm install
   - ./node_modules/.bin/webpack -p
