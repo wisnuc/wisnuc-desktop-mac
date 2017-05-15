@@ -36,7 +36,7 @@ const initMainWindow = () => {
 	})
 
   // debug mode
-  _mainWindow.webContents.openDevTools()
+  //_mainWindow.webContents.openDevTools()
   // _mainWindow.maximize()
 
   // _mainWindow.maximize()
