@@ -4,10 +4,6 @@ environment:
 
 install:
   - npm install
-  - npm uninstall babel
-  - npm install babel-cli
-  - npm install electron-builder --save-dev
-  - npm install electron-log electron-updater --save
   - ./node_modules/.bin/webpack -p
   - npm run build
 
