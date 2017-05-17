@@ -38,7 +38,7 @@ nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
   menuCategory: true
-  license: "LICENSE Replacement"
+  #license: "LICENSE Replacement"
   language: "1033"
   runAfterFinish: false
 
