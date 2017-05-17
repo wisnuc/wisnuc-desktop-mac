@@ -38,8 +38,8 @@ nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
   menuCategory: true
-  license: LICENSE
-  language: 1033
+  license: "LICENSE Replacement"
+  language: "1033"
   runAfterFinish: false
 
 linux:
