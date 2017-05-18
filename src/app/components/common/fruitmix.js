@@ -110,7 +110,7 @@ class Fruitmix extends EventEmitter {
       break
 
     case 'updateAccount':
-      r = this.apost('account', args)
+        r = this.apatch(`users/${args.uuid}`, args)
       break
 
     case 'users':
@@ -150,6 +150,10 @@ class Fruitmix extends EventEmitter {
       })
       break
 
+    case 'adminUpdateDrive':
+      r = this.apost(`admin/drives/${args.driveUUID}`, args)
+      break
+
     /** File APIs **/
     case 'listDir':
       r = this.aget(`files/fruitmix/list/${args.dirUUID}`)
@@ -176,7 +180,7 @@ class Fruitmix extends EventEmitter {
       break
 
     case 'renameDirOrFile':
-      r = this.apost(`files/fruitmix/rename/${args.dirUUID}/${args.nodeUUID}/${args.filename}`)
+      r = this.apatch(`files/fruitmix/rename/${args.dirUUID}/${args.nodeUUID}`, {filename: args.filename})
       break
 
     case 'deleteDirOrFile':
