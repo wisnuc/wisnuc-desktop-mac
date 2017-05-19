@@ -1,0 +1,20 @@
+sudo: true
+language: node_js
+node_js: '6'
+os: osx
+osx_image: xcode8
+
+branches:
+  only:
+  - master
+
+before_install:
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew update; fi
+
+install:
+  - npm install
+  - ./node_modules/.bin/webpack -p
+  - npm run build
+
+script:
+  - "./node_modules/.bin/build --config ./electron-builder.yml --mac -p always"

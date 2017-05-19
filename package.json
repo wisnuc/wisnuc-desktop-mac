@@ -1,9 +1,9 @@
 {
   "name": "wisnuc",
-  "version": "1.0.5",
+  "version": "1.0.0",
   "description": "wisnuc",
   "author": "wisnuc <support@winsuntech.cn>",
-  "repository": "https://github.com/wisnuc/wisnuc-desktop-windows",
+  "repository": "https://github.com/wisnuc/wisnuc-desktop-mac",
   "private": true,
   "main": "main.js",
   "scripts": {
