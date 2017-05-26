@@ -14,7 +14,7 @@ import Base from './Base'
 import { command } from '../../lib/command'
 import ContextMenu from '../common/ContextMenu'
 import FileUploadButton from '../file/FileUploadButton'
-
+import FileDetail from '../file/FileDetail'
 
 class Public extends Base {
 
@@ -37,8 +37,16 @@ class Public extends Base {
       createNewFolder: false,
       rename: false,
       move:false,
-      inRoot: false
+      inRoot: false,
+
+      detailIndex: -1
     } 
+
+    this.updateDetailBound = this.updateDetail.bind(this)
+  }
+
+  updateDetail(index) {
+    this.setState({ detailIndex: index })
   }
 
   updateState(listNavDir) {
@@ -48,7 +56,6 @@ class Public extends Base {
      listNavDir.adminDrives === this.state.adminDrives) return
 
     if (this.state.inRoot) {
-      console.log('在根目录')
       let path = [{name:'共享文件夹', uuid:null, type:'publicRoot'}]
       let entries = listNavDir.adminDrives.drives
 
@@ -62,7 +69,6 @@ class Public extends Base {
       this.setState(state)
 
     }else {
-      console.log('不在根目录', listNavDir)
       let path = [{type:'public',name:'共享文件夹', uuid:null}].concat(listNavDir.driveListNavDir.path)
       let entries = listNavDir.driveListNavDir.entries
       entries = [...entries].sort((a, b) => {
@@ -274,7 +280,33 @@ class Public extends Base {
   }
 
   delete() {
+    console.log(this)
+    let entries = this.state.entries
+    let selected = this.state.select.selected
+    let count = selected.length
+    let finishCount = 0
 
+    let p = this.state.path
+    let dirUUID = p[p.length - 1].uuid
+
+    let loop = () => {
+      let nodeUUID = entries[selected[finishCount]].uuid
+      this.ctx.props.apis.request('deleteDirOrFile', {dirUUID, nodeUUID}, (err, data) => {
+        console.log(entries[selected[finishCount]].name + ' finish')
+        if (err) console.log(err)
+        finishCount++
+        console.log(finishCount, ' vs ', count, this.state.path[this.state.path.length - 1].uuid === dirUUID)
+        if (finishCount === count) {
+          if (this.state.path[this.state.path.length - 1].uuid === dirUUID) {
+            if (this.state.path.length == 1) {this.ctx.props.apis.request('adminDrives')}
+            this.ctx.props.apis.request('driveListNavDir', {rootUUID: this.state.path[1].uuid, dirUUID})
+          }else return
+          
+        }else loop()
+      })
+    }
+
+    loop()
   }
 
   upload(type) {
@@ -301,6 +333,21 @@ class Public extends Base {
 
 
   /** renderers **/
+
+  renderDetail({ style }) {
+    return (
+      <div style={style}>
+        {
+          this.state.entries.length ?
+            <FileDetail
+              detailFile={this.state.entries[this.state.detailIndex]}
+              path={this.state.path}
+            /> :
+            <div style={{ height: 128, backgroundColor: '#00796B' }} />
+        }
+      </div>
+    )
+  }
   renderContent() {
     return (
       <div style={{position: 'relative', width: '100%', height: '100%'}}>
@@ -311,6 +358,7 @@ class Public extends Base {
           entries={this.state.entries}
           listNavBySelect={this.listNavBySelect.bind(this)}
           showContextMenu={this.showContextMenu.bind(this)}
+          updateDetail={this.updateDetailBound}
         />
 
         <ContextMenu 

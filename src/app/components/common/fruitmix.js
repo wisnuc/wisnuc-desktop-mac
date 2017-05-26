@@ -41,7 +41,7 @@ class Fruitmix extends EventEmitter {
 
       this.setState(name, curr)
 
-      console.log(`${name} updated`, prev, curr, this[name].isFinished(), typeof next === 'function')
+      // console.log(`${name} updated`, prev, curr, this[name].isFinished(), typeof next === 'function')
 
       if (this[name].isFinished() && next) {
         this[name].isRejected() 
@@ -195,6 +195,7 @@ class Fruitmix extends EventEmitter {
       break
 
     case 'extListDir':
+      r = this.aget(`files/external/fs/${args.path}`)
       break
 
     case 'extMkdir':
