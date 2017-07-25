@@ -9,8 +9,6 @@ let _mainWindow = null
 const getMainWindow = () => _mainWindow
 
 const initMainWindow = () => {
-  // add react-devtools as extension of chrome
-  // BrowserWindow.addDevToolsExtension(`${process.cwd()}/public/assets/react-devtools/2.0.12_0`)
 
   // create window
   _mainWindow = new BrowserWindow({
@@ -23,7 +21,7 @@ const initMainWindow = () => {
     title: 'WISNUC',
     icon: path.join(global.rootPath, 'icon.png'), // it doesn't work in devel mode
     webPreferences: {
-      webSecurity: false,
+      webSecurity: true, // set false to disable the same-origin policy
       experimentalFeatures: true
     }
   })
@@ -34,8 +32,8 @@ const initMainWindow = () => {
   })
 
   // debug mode
-  //_mainWindow.webContents.openDevTools()
-  //_mainWindow.maximize()
+  // _mainWindow.webContents.openDevTools()
+  // _mainWindow.maximize()
 
   if (global.BABEL_IS_RUNNING) { _mainWindow.loadURL(`file://${process.cwd()}/public/index.html`) } else { _mainWindow.loadURL(`file://${path.join(global.entryFileDir, '../public', 'index.html')}`) }
 

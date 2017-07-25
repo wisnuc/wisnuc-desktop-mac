@@ -20,7 +20,7 @@ let tokenObj
 const httpRequestConcurrency = 4
 const fileHashConcurrency = 6
 const visitConcurrency = 2
-const partSize = 20000000
+const partSize = 1073741824
 let sendHandler = null
 
 const runningQueue = []
@@ -310,7 +310,7 @@ class TaskManager {
     if (obj.target === '') {
       this.recordInfor('当前文件父文件夹正在创建，缺少目标，等待...')
       return
-    }        else if (obj.type === 'file' && obj.sha === '') {
+    } else if (obj.type === 'file' && obj.sha === '') {
       this.recordInfor('当前文件HASH尚未计算，等待...')
       return
     }
@@ -331,7 +331,7 @@ class TaskManager {
       this.finishDate = utils.formatDate()
       userTasks.splice(userTasks.indexOf(this), 1)
       finishTasks.unshift(this)
-      getMainWindow().webContents.send('driveListUpdate', Object.assign({}, { uuid: this.target, message: '上传成功' }))
+      // getMainWindow().webContents.send('driveListUpdate', Object.assign({}, { uuid: this.target, message: '上传成功' }))
       sendMessage()
       return this.finishStore()
     } return this.uploadSchedule()
@@ -558,7 +558,7 @@ class FileUploadTask extends UploadTask {
     this.sha = ''
     this.parts = []
     this.taskid = ''
-    this.segmentsize = size > 1024000000 ? Math.ceil(size / 50) : this.size < partSize ? this.size : partSize
+    this.segmentsize = size > 1073741824 ? partSize : this.size
     this.failedTimes = 0
   }
 
@@ -722,7 +722,7 @@ class UploadFileSTM extends STM {
     const tempStream = fs.createReadStream(this.wrapper.abspath).pipe(transform)
     const options = {
       host: ip,
-      port: 3721,
+      port: 3000,
       headers: {
         Authorization: `${tokenObj.type} ${tokenObj.token}`
       },
@@ -752,15 +752,15 @@ class UploadFileSTM extends STM {
       url: `${server}/filemap/${this.wrapper.target}`,
       method: 'post',
       headers: {
-         Authorization: `${tokenObj.type} ${tokenObj.token}`,
-         'Content-Type': 'application/json'
-       },
-       body: JSON.stringify({
-         filename: this.wrapper.name,
-         size: this.wrapper.size,
-         segmentsize: this.wrapper.segmentsize,
-         sha256: this.wrapper.sha
-     })
+        Authorization: `${tokenObj.type} ${tokenObj.token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        filename: this.wrapper.name,
+        size: this.wrapper.size,
+        segmentsize: this.wrapper.segmentsize,
+        sha256: this.wrapper.sha
+      })
     }
 
     request(options, (err, res, body) => {
@@ -770,10 +770,10 @@ class UploadFileSTM extends STM {
         console.log(`任务创建的目标是：${this.wrapper.target}`)
         return this.uploadWholeFile()
       }
-        const b = JSON.parse(body)
-        console.log('上传任务创建成功')
-        _this.wrapper.taskid = b.taskid
-        this.uploadSegment()
+      const b = JSON.parse(body)
+      console.log('上传任务创建成功')
+      _this.wrapper.taskid = b.taskid
+      this.uploadSegment()
     })
   }
 
@@ -802,7 +802,7 @@ class UploadFileSTM extends STM {
 
     const options = {
       host: ip,
-      port: 3721,
+      port: 3000,
       headers: {
         Authorization: `${tokenObj.type} ${tokenObj.token}`
       },
@@ -869,7 +869,7 @@ class UploadFileSTM extends STM {
 
 const initArgs = () => {
   ip = store.getState().login.device.mdev.address
-  server = `http://${store.getState().login.device.mdev.address}:3721`
+  server = `http://${store.getState().login.device.mdev.address}:3000`
   tokenObj = store.getState().login.device.token.data
 }
 

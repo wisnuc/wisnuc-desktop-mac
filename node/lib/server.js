@@ -11,6 +11,7 @@ import store from '../serve/store/store'
 
 const getIpAddr = () => store.getState().login.device.mdev.address
 const getToken = () => store.getState().login.device.token.data.token
+const getTmpPath = () => store.getState().config.tmpPath
 
 // TODO token can also be auth, or not provided
 const requestGet = (url, qs, token, callback) => {
@@ -60,7 +61,7 @@ const requestDownload = (url, qs, token, downloadPath, name, callback) => {
     opts.auth = token
   }
 
-  const tmpPath = path.join(global.tmpPath, UUID.v4())
+  const tmpPath = path.join(getTmpPath(), UUID.v4())
   const dst = path.join(downloadPath, name)
 
   const stream = fs.createWriteStream(tmpPath)
@@ -156,45 +157,9 @@ const requestDelete = (url, token, callback) => {
 
 const requestDeleteAsync = Promise.promisify(requestDelete)
 
-const updateUsersAsync = async () => {
-  const ip = getIpAddr()
-  const port = 3721
-
-  const users = await requestGetAsync(`http://${ip}:${port}/login`, null)
-
-  debug('update users', users)
-
-  store.dispatch({
-    type: 'SERVER_UPDATE_USERS',
-    data: users
-  })
-}
-
-// TODO username should be UUID
-export const tryLoginAsync = async (username, password) => {
-  debug('tryLoginAsync', username, password)
-
-  await updateUsersAsync()
-
-  // TODO invalid state
-  const ip = getIpAddr()
-  const port = 3721
-  const users = store.getState().server.users
-  const userUUID = users.find(usr => usr.username === username).uuid
-
-  debug('requesting token', userUUID, password)
-
-  const tok = await requestGetAsync(`http://${ip}:${port}/token`, null, {
-    username: userUUID, password
-  })
-
-  debug('tryLoginAsync, token', tok)
-  return tok
-}
-
 export const retrieveUsers = async (token) => {
   const ip = getIpAddr()
-  const port = 3721
+  const port = 3000
 
   return requestGetAsync(`http://${ip}:${port}/users`, null, token)
 }
@@ -203,35 +168,35 @@ export const serverGetAsync = async (endpoint, qs) => {
   debug('serverGetAsync', endpoint, qs)
 
   const ip = getIpAddr()
-  const port = 3721
+  const port = 3000
   const token = getToken()
   return requestGetAsync(`http://${ip}:${port}/${endpoint}`, qs, token)
 }
 
 export const serverDeleteAsync = async (endpoint) => {
   const ip = getIpAddr()
-  const port = 3721
+  const port = 3000
   const token = getToken()
   return requestDeleteAsync(`http://${ip}:${port}/${endpoint}`, token)
 }
 
 export const serverPostAsync = async (endpoint, body) => {
   const ip = getIpAddr()
-  const port = 3721
+  const port = 3000
   const token = getToken()
   return requestPostAsync(`http://${ip}:${port}/${endpoint}`, token, body)
 }
 
 export const serverPatchAsync = async (endpoint, body) => {
   const ip = getIpAddr()
-  const port = 3721
+  const port = 3000
   const token = getToken()
   return requestPatchAsync(`http://${ip}:${port}/${endpoint}`, token, body)
 }
 
 export const serverDownloadAsync = (endpoint, qs, downloadPath, name) => {
   const ip = getIpAddr()
-  const port = 3721
+  const port = 3000
   const token = getToken()
   return requestDownloadAsync(`http://${ip}:${port}/${endpoint}`, qs, token, downloadPath, name)
 }
