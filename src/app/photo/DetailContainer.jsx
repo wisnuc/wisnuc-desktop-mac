@@ -9,6 +9,7 @@ import ImageIcon from 'material-ui/svg-icons/image/image'
 import CameraIcon from 'material-ui/svg-icons/image/camera'
 import LoactionIcon from 'material-ui/svg-icons/communication/location-on'
 import CloseIcon from 'material-ui/svg-icons/navigation/close'
+import Visibility from 'material-ui/svg-icons/action/visibility'
 import VisibilityOff from 'material-ui/svg-icons/action/visibility-off'
 import InfoIcon from 'material-ui/svg-icons/action/info'
 import DownloadIcon from 'material-ui/svg-icons/file/file-download'
@@ -192,14 +193,19 @@ class DetailContainerInline extends React.Component {
             this[`refPreview_${i}`].style.opacity = 0
             this[`refPreview_${i}`].style.zIndex = 0
             /* update div content */
-            let item = {}
-            if (this.currentIndex < this.props.items.length - 1) item = this.props.items[this.currentIndex + 1]
+            const max = this.props.items.length - 1
             if (!i) {
-              this.leftItem = item
+              this.leftItem = this.currentIndex < max ? this.props.items[this.currentIndex + 1] : {}
+              this.centerItem = this.currentIndex < max - 1 ? this.props.items[this.currentIndex + 2] : {}
+              this.rightItem = this.currentIndex < max + 1 ? this.props.items[this.currentIndex] : {}
             } else if (i === 1) {
-              this.centerItem = item
+              this.leftItem = this.currentIndex < max + 1 ? this.props.items[this.currentIndex] : {}
+              this.centerItem = this.currentIndex < max ? this.props.items[this.currentIndex + 1] : {}
+              this.rightItem = this.currentIndex < max - 1 ? this.props.items[this.currentIndex + 2] : {}
             } else {
-              this.rightItem = item
+              this.leftItem = this.currentIndex < max - 1 ? this.props.items[this.currentIndex + 2] : {}
+              this.centerItem = this.currentIndex < max + 1 ? this.props.items[this.currentIndex] : {}
+              this.rightItem = this.currentIndex < max ? this.props.items[this.currentIndex + 1] : {}
             }
           } else if (this[`refPreview_${i}`].style.left === '20%') {
             this[`refPreview_${i}`].style.opacity = 1
@@ -221,14 +227,18 @@ class DetailContainerInline extends React.Component {
         for (let i = 0; i < 3; i++) {
           if (this[`refPreview_${i}`].style.left === '20%') {
             /* update div content */
-            let item = {}
-            if (this.currentIndex) item = this.props.items[this.currentIndex - 1]
             if (!i) {
-              this.leftItem = item
+              this.leftItem = this.currentIndex > 0 ? this.props.items[this.currentIndex - 1] : {}
+              this.centerItem = this.currentIndex > -1 ? this.props.items[this.currentIndex] : {}
+              this.rightItem = this.currentIndex > 1 ? this.props.items[this.currentIndex - 2] : {}
             } else if (i === 1) {
-              this.centerItem = item
+              this.leftItem = this.currentIndex > 1 ? this.props.items[this.currentIndex - 2] : {}
+              this.centerItem = this.currentIndex > 0 ? this.props.items[this.currentIndex - 1] : {}
+              this.rightItem = this.currentIndex > -1 ? this.props.items[this.currentIndex] : {}
             } else {
-              this.rightItem = item
+              this.leftItem = this.currentIndex > -1 ? this.props.items[this.currentIndex] : {}
+              this.centerItem = this.currentIndex > 1 ? this.props.items[this.currentIndex - 2] : {}
+              this.rightItem = this.currentIndex > 0 ? this.props.items[this.currentIndex - 1] : {}
             }
             this[`refPreview_${i}`].style.opacity = 0
             this[`refPreview_${i}`].style.zIndex = 0
@@ -287,7 +297,10 @@ class DetailContainerInline extends React.Component {
       }
     }
   }
+
   componentWillMount() {
+    debug('componentWillMount', this.currentIndex, this.props.items.length)
+
     /* init three items' content */
     this.centerItem = this.props.items[this.currentIndex]
     this.leftItem = {}
@@ -305,6 +318,15 @@ class DetailContainerInline extends React.Component {
   componentDidMount() {
     /* update refContainer size */
     this.forceUpdate()
+  }
+
+  componentDidUpdate(prevProps, prevState) {
+    if (this.forceChange && prevProps && this.props && prevProps.items.length !== this.props.items.length) {
+      debug('componentWillReceiveProps', prevProps, this.props)
+      this.currentIndex -= 1
+      this.changeIndex('right')
+      this.forceChange = false
+    }
   }
 
   componentWillUnmount() {
@@ -409,8 +431,11 @@ class DetailContainerInline extends React.Component {
   }
 
   render() {
-    // debug('renderContainer', this.leftItem, this.centerItem, this.rightItem)
+    debug('renderContainer', this.leftItem, this.centerItem, this.rightItem)
     this.changeContainer()
+
+    /* show hidden media or just normal view */
+    const h = this.props.type === 'hidden'
     return (
       <div
         ref={ref => (this.refRoot = ref)}
@@ -548,11 +573,11 @@ class DetailContainerInline extends React.Component {
                     <IconButton onTouchTap={() => this.toggleDialog('deleteDialog')} tooltip="删除">
                       <DeleteIcon color="#FFF" />
                     </IconButton>
-
-                    <IconButton onTouchTap={() => this.toggleDialog('hideDialog')} tooltip="隐藏">
-                      <VisibilityOff color="#FFF" />
-                    </IconButton>
                     */}
+
+                    <IconButton onTouchTap={() => this.toggleDialog('hideDialog')} tooltip={h ? '显示' : '隐藏'}>
+                      { h ? <Visibility color="#FFF" /> : <VisibilityOff color="#FFF" /> }
+                    </IconButton>
 
                     <IconButton onTouchTap={() => this.toggleDialog('detailInfo')} tooltip="信息">
                       <InfoIcon color="#FFF" />
@@ -664,21 +689,22 @@ class DetailContainerInline extends React.Component {
               this.state.hideDialog &&
                 <div style={{ width: 320, padding: '24px 24px 0px 24px' }}>
                   <div style={{ fontSize: 20, fontWeight: 500, color: 'rgba(0,0,0,0.87)' }}>
-                    { '要将照片隐藏吗？' }
+                    { h ? '要恢复照片吗' : '要将照片隐藏吗？' }
                   </div>
                   <div style={{ height: 20 }} />
                   <div style={{ color: 'rgba(0,0,0,0.54)' }}>
-                    { '内容被隐藏后，我的照片内将不显示，可在智能助理中恢复。' }
+                    { h ? '内容将重新在我的照片内显示' : '内容被隐藏后，我的照片内将不显示，可在智能助理中恢复。' }
                   </div>
                   <div style={{ height: 24 }} />
                   <div style={{ height: 52, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', marginRight: -24 }}>
                     <FlatButton label="取消" primary onTouchTap={() => this.toggleDialog('hideDialog')} keyboardFocused />
                     <FlatButton
-                      label="隐藏"
+                      label={h ? '显示' : '隐藏'}
                       primary
                       onTouchTap={() => {
+                        this.props.hideMedia(h)
                         this.toggleDialog('hideDialog')
-                        this.props.hideMedia()
+                        this.forceChange = true
                       }}
                     />
                   </div>
