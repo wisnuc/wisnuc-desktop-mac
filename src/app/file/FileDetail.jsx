@@ -1,11 +1,11 @@
 import React from 'react'
 import Debug from 'debug'
-import UUID from 'node-uuid'
 import prettysize from 'prettysize'
 import { CircularProgress, Divider } from 'material-ui'
 import FileFolder from 'material-ui/svg-icons/file/folder'
 import ContentCopy from 'material-ui/svg-icons/content/content-copy'
 import ErrorIcon from 'material-ui/svg-icons/alert/error'
+import Thumb from './Thumb'
 import renderFileIcon from '../common/renderFileIcon'
 
 const debug = Debug('component:file:FileDetail:')
@@ -25,7 +25,7 @@ const phaseExifTime = (time) => {
 
 const getType = (type, name, metadata) => {
   if (type === 'folder') return '文件夹'
-  if (type === 'public') return '共享文件夹'
+  if (type === 'public') return '共享盘'
   if (type === 'directory') return '文件夹'
   if (metadata && metadata.format) return metadata.format
   let extension = name.replace(/^.*\./, '')
@@ -37,7 +37,7 @@ const getPath = (path) => {
   const newPath = []
   path.map((item, index) => {
     if (!index) {
-      newPath.push(item.type === 'publicRoot' ? '共享文件夹' : '我的文件')
+      newPath.push(item.type === 'publicRoot' ? '共享盘' : '我的文件')
     } else {
       newPath.push(item.name)
     }
@@ -62,39 +62,6 @@ class FileDetail extends React.PureComponent {
 
   constructor(props) {
     super(props)
-
-    this.state = {
-      thumbPath: ''
-    }
-
-    this.updateThumbPath = (event, session, path) => {
-      if (this.session === session) {
-        // debug('thumbPath got')
-        this.setState({ thumbPath: path })
-      }
-    }
-
-    /* handle detailFile in first render */
-    if (this.props.detailFile && this.props.detailFile.digest) {
-      this.session = UUID.v4()
-      this.props.ipcRenderer.send('mediaShowThumb', this.session, this.props.detailFile.digest, 210, 210)
-      this.props.ipcRenderer.on('getThumbSuccess', this.updateThumbPath)
-    }
-  }
-
-  componentWillReceiveProps(nextProps) {
-    if (nextProps && nextProps.detailFile && nextProps.detailFile.digest &&
-      (!this.props.detailFile || nextProps.detailFile.digest !== this.props.detailFile.digest)) {
-      this.session = UUID.v4()
-      this.props.ipcRenderer.send('mediaShowThumb', this.session, nextProps.detailFile.digest, 210, 210)
-      this.props.ipcRenderer.on('getThumbSuccess', this.updateThumbPath)
-      this.setState({ thumbPath: '' })
-    }
-  }
-
-  componentWillUnmount() {
-    this.props.ipcRenderer.removeListener('getThumbSuccess', this.updateThumbPath)
-    this.props.ipcRenderer.send('mediaHideThumb', this.session)
   }
 
   renderList(titles, values) {
@@ -134,7 +101,7 @@ class FileDetail extends React.PureComponent {
   }
 
   renderTitle(detailFile) {
-    const { name, type, magic } = detailFile
+    const { name, type, metadata } = detailFile
     return (
       <div
         style={{
@@ -151,7 +118,7 @@ class FileDetail extends React.PureComponent {
             type === 'folder' || type === 'public' || type === 'directory'
             ? <FileFolder style={{ color: '#FFFFFF' }} />
             : type === 'file'
-            ? renderFileIcon(name, magic, 24, false, true) // name, metadata, size, dark, white
+            ? renderFileIcon(name, metadata, 24, false, true) // name, metadata, size, dark, white
             : <ErrorIcon style={{ color: '#FFFFFF' }} />
           }
         </div>
@@ -229,18 +196,18 @@ class FileDetail extends React.PureComponent {
       detailFile = detailIndex.map(i => entries[i])
       return this.renderMultiFiles(detailFile)
     }
-    // debug('detailFile', detailFile, this.state)
+    debug('detailFile', detailFile)
 
-    const { metadata, digest } = detailFile
+    const { metadata, hash } = detailFile
     let exifDateTime = ''
     let exifModel = ''
     let height = ''
     let width = ''
     if (metadata) {
-      exifDateTime = metadata.exifDateTime
-      exifModel = metadata.exifModel
-      height = metadata.height
-      width = metadata.width
+      exifDateTime = metadata.datetime
+      exifModel = metadata.model
+      height = metadata.h
+      width = metadata.w
     }
 
     let longPic = false
@@ -281,29 +248,27 @@ class FileDetail extends React.PureComponent {
 
         {/* picture */}
         {
-          digest &&
+          metadata && hash &&
             <div
               style={{
                 margin: 24,
-                overflow: 'hidden',
+                width: 312,
+                height: 234,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center'
               }}
             >
-              {
-                this.state.thumbPath &&
-                  <img
-                    width={312}
-                    height={234}
-                    style={{ objectFit: longPic ? 'contain' : 'cover' }}
-                    alt="ThumbImage"
-                    src={this.state.thumbPath}
-                  />
-              }
+              <Thumb
+                digest={hash}
+                ipcRenderer={this.props.ipcRenderer}
+                height={234}
+                width={312}
+                full
+              />
             </div>
         }
-        { digest && <Divider /> }
+        { metadata && hash && <Divider /> }
 
         {/* data */}
         <div style={{ width: 312, padding: 24, display: 'flex', flexDirection: 'column' }}>

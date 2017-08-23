@@ -123,13 +123,19 @@ class Fruitmix extends EventEmitter {
         break
 
       case 'updateAccount':
-        console.log('updateAccount', args)
         r = this.apatch(`users/${this.userUUID}`, args)
         break
 
+      case 'updatePassword':
+        r = request
+          .put(`http://${this.address}:3000/users/${this.userUUID}/password`, { password: args.newPassword })
+          .auth(this.userUUID, args.prePassword)
+          .set('Accept', 'application/json')
+        break
+
       case 'users':
-        r = request.get(`http://${this.address}:3000/users`)
-        // r = this.aget('users')
+        // r = request.get(`http://${this.address}:3000/users`)
+        r = this.aget('users')
         break
 
       case 'drives':
@@ -140,15 +146,18 @@ class Fruitmix extends EventEmitter {
         r = this.aget('admin/users')
         break
 
+      case 'adminUpdateUsers':
+        r = this.apatch(`users/${args.userUUID}`, {
+          isAdmin: args.isAdmin,
+          disabled: args.disabled
+        })
+        break
+
       case 'adminCreateUser':
         r = this.apost('users', {
           username: args.username,
           password: args.password
         })
-        break
-
-      case 'driveListNavDir':
-        r = this.aget(`files/fruitmix/list-nav/${args.dirUUID}/${args.rootUUID}`)
         break
 
       case 'adminCreateDrive':
@@ -159,7 +168,10 @@ class Fruitmix extends EventEmitter {
         break
 
       case 'adminUpdateDrive':
-        r = this.apost(`drives/${args.uuid}`, args)
+        r = this.apatch(`drives/${args.uuid}`, {
+          label: args.label,
+          writelist: args.writelist
+        })
         break
 
     /** File APIs **/
@@ -169,6 +181,7 @@ class Fruitmix extends EventEmitter {
 
       case 'listNavDir':
         r = this.aget(`drives/${args.driveUUID}/dirs/${args.dirUUID}`)
+          .query({ metadata: true })
         break
 
       case 'mkdir':

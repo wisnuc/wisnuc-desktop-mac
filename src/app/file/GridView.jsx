@@ -11,8 +11,11 @@ import ArrowUpward from 'material-ui/svg-icons/navigation/arrow-upward'
 import ArrowDownward from 'material-ui/svg-icons/navigation/arrow-downward'
 import CheckIcon from 'material-ui/svg-icons/navigation/check'
 import { List, AutoSizer } from 'react-virtualized'
+
+import Thumb from './Thumb'
 import renderFileIcon from '../common/renderFileIcon'
 import FlatButton from '../common/FlatButton'
+import { ShareDisk } from '../common/Svg'
 
 const debug = Debug('component:file:GridView:')
 
@@ -70,7 +73,7 @@ class Row extends React.PureComponent {
           list.first &&
             <div style={{ height: 40, display: 'flex', alignItems: 'center ', marginBottom: 8 }}>
               <div style={{ fontSize: 14, color: 'rgba(0,0,0,0.54)', width: 64 }}>
-                { list.entries[0].entry.type === 'directory' ? '文件夹' : '文件' }
+                { list.entries[0].entry.type === 'file' ? '文件' : list.entries[0].entry.type === 'public' ? '共享盘' : '文件夹' }
               </div>
               <div style={{ flexGrow: 1 }} />
               {
@@ -92,19 +95,19 @@ class Row extends React.PureComponent {
                       <Menu style={{ minWidth: 240 }}>
                         <MenuItem
                           style={{ fontSize: 13 }}
-                          leftIcon={this.state.type === "名称" ? <CheckIcon /> : <div />}
+                          leftIcon={this.state.type === '名称' ? <CheckIcon /> : <div />}
                           primaryText="名称"
                           onTouchTap={() => this.handleChange('名称')}
                         />
                         <MenuItem
                           style={{ fontSize: 13 }}
-                          leftIcon={this.state.type === "修改时间" ? <CheckIcon /> : <div />}
+                          leftIcon={this.state.type === '修改时间' ? <CheckIcon /> : <div />}
                           primaryText="修改时间"
                           onTouchTap={() => this.handleChange('修改时间')}
                         />
                         <MenuItem
                           style={{ fontSize: 13 }}
-                          leftIcon={this.state.type === "文件大小" ? <CheckIcon /> : <div />}
+                          leftIcon={this.state.type === '文件大小' ? <CheckIcon /> : <div />}
                           primaryText="文件大小"
                           onTouchTap={() => this.handleChange('文件大小')}
                         />
@@ -136,7 +139,7 @@ class Row extends React.PureComponent {
                 <div
                   style={{
                     width: 180,
-                    height: entry.type !== 'directory' ? 184 : 48,
+                    height: entry.type === 'file' ? 184 : 48,
                     marginRight: 20,
                     marginBottom: 16,
                     boxShadow: selected ? 'rgba(0, 0, 0, 0.188235) 0px 10px 30px, rgba(0, 0, 0, 0.227451) 0px 6px 10px'
@@ -148,17 +151,20 @@ class Row extends React.PureComponent {
                 >
                   {/* preview or icon */}
                   {
-                  entry.type !== 'directory' &&
-                    <div style={{ height: 136, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      {
-                        entry.type === 'folder' || entry.type === 'public' || entry.type === 'directory'
-                        ? <FileFolder style={{ color: 'rgba(0,0,0,0.54)', width: 64, height: 64 }} />
-                        : entry.type === 'file'
-                        ? renderFileIcon(entry.name, entry.magic, 64)
-                        : <ErrorIcon style={{ color: 'rgba(0,0,0,0.54)', width: 64, height: 64 }} />
-                      }
-                    </div>
-                }
+                    entry.type === 'file' &&
+                      <div style={{ height: 136, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                        {
+                          entry.metadata
+                          ? <Thumb
+                            digest={entry.hash}
+                            ipcRenderer={this.props.ipcRenderer}
+                            height={180}
+                            width={180}
+                          />
+                          : renderFileIcon(entry.name, entry.metadata, 64)
+                        }
+                      </div>
+                  }
 
                   {/* file name */}
                   <div
@@ -174,12 +180,14 @@ class Row extends React.PureComponent {
                     <div style={{ width: 30, height: 30, display: 'flex', alignItems: 'center', margin: 12 }}>
                       <Avatar style={{ backgroundColor: 'white', width: 30, height: 30 }}>
                         {
-                        entry.type === 'folder' || entry.type === 'public' || entry.type === 'directory'
-                        ? <FileFolder style={{ color: 'rgba(0,0,0,0.54)', width: 24, height: 24 }} />
-                        : entry.type === 'file'
-                        ? renderFileIcon(entry.name, entry.metadata, 24)
-                        : <ErrorIcon style={{ color: 'rgba(0,0,0,0.54)', width: 24, height: 24 }} />
-                      }
+                          entry.type === 'directory'
+                          ? <FileFolder style={{ color: 'rgba(0,0,0,0.54)', width: 24, height: 24 }} />
+                          : entry.type === 'public'
+                          ? <ShareDisk style={{ color: 'rgba(0,0,0,0.54)', width: 24, height: 24 }} />
+                          : entry.type === 'file'
+                          ? renderFileIcon(entry.name, entry.metadata, 24)
+                          : <ErrorIcon style={{ color: 'rgba(0,0,0,0.54)', width: 24, height: 24 }} />
+                        }
                       </Avatar>
                     </div>
                     <div
@@ -259,7 +267,7 @@ class GridView extends React.Component {
       }
       /* calculate each row's heigth and their sum */
       this.mapData.forEach((list) => {
-        const tmp = 200 + !!list.first * 48 - !!(list.entries[0].entry.type === 'directory') * 136
+        const tmp = 64 + !!list.first * 48 + (list.entries[0].entry.type === 'file') * 136
         this.allHeight.push(tmp)
         this.rowHeightSum += tmp
         this.indexHeightSum.push(this.rowHeightSum)
@@ -286,7 +294,7 @@ class GridView extends React.Component {
           {({ height, width }) => {
             const gridInfo = calcGridInfo(height, width, this.props.entries)
             const { mapData, allHeight, rowHeightSum, indexHeightSum, maxScrollTop } = gridInfo
-            debug('gridInfo', allHeight, this.props.entries.length)
+            // debug('gridInfo', allHeight, this.props.entries.length)
 
             const estimatedRowSize = rowHeightSum / allHeight.length
             const rowHeight = ({ index }) => allHeight[index]
