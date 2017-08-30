@@ -1,6 +1,7 @@
 import React from 'react'
 import Debug from 'debug'
 import UploadIcon from 'material-ui/svg-icons/file/cloud-upload'
+import ErrorIcon from 'material-ui/svg-icons/alert/error'
 import ContainerOverlay from './ContainerOverlay'
 import RenderListByRow from './RenderListByRow'
 import GridView from './GridView'
@@ -74,8 +75,12 @@ class FileContent extends React.Component {
       const dir = this.props.home.path
       const dirUUID = dir[dir.length - 1].uuid
       const driveUUID = this.props.home.path[0].uuid
-      debug('drop files!!', files, dirUUID, driveUUID)
-      this.props.ipcRenderer.send('DRAG_FILE', { files, dirUUID, driveUUID })
+      debug('drop files!!', files, dirUUID, driveUUID, dir)
+      if (!dirUUID || !driveUUID) {
+        this.props.openSnackBar('共享盘列表不能上传文件或文件夹') 
+      } else {
+        this.props.ipcRenderer.send('DRAG_FILE', { files, dirUUID, driveUUID })
+      }
     }
 
     this.openFile = (file) => {
@@ -122,6 +127,32 @@ class FileContent extends React.Component {
     )
   }
 
+  renderOffLine() {
+    return (
+      <div
+        style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        onTouchTap={e => this.onRowTouchTap(e, -1)}
+        onDrop={this.drop}
+      >
+        <div
+          style={{
+            width: 360,
+            height: 360,
+            borderRadius: '180px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexDirection: 'column',
+            backgroundColor: '#FAFAFA'
+          }}
+        >
+          <ErrorIcon style={{ height: 64, width: 64, color: 'rgba(0,0,0,0.27)' }} />
+          <div style={{ fontSize: 20, color: 'rgba(0,0,0,0.27)' }}> { '网络连接已断开，请检查网络设置' } </div>
+        </div>
+      </div>
+    )
+  }
+
   render() {
     // debug('render FileContent', this.props, this.state)
 
@@ -130,6 +161,9 @@ class FileContent extends React.Component {
 
     /* dir is empty */
     if (this.props.entries && !this.props.entries.length) return this.renderNoFile()
+
+    /* lost connection to wisnuc */
+    if (!window.navigator.onLine) return this.renderOffLine()
 
     /* got list */
     return (

@@ -11,6 +11,7 @@ import Promise from 'bluebird'
 import request from 'superagent'
 import sanitize from 'sanitize-filename'
 import FlatButton from '../common/FlatButton'
+import { ShareDisk } from '../common/Svg'
 
 Promise.promisifyAll(request)
 
@@ -37,9 +38,11 @@ class Row extends React.PureComponent {
       >
         <div style={{ margin: '0 12px 0 12px', display: 'flex' }}>
           {
-            node.type === 'file' ?
-              <EditorInsertDriveFile style={{ color: 'rgba(0,0,0,0.54)' }} /> :
-              <FileFolder style={{ color: 'rgba(0,0,0,0.54)' }} />
+            node.type === 'file'
+            ? <EditorInsertDriveFile style={{ color: 'rgba(0,0,0,0.54)' }} />
+            : node.type === 'public' || node.type === 'publicRoot'
+            ? <ShareDisk style={{ color: 'rgba(0,0,0,0.54)' }} />
+            : <FileFolder style={{ color: 'rgba(0,0,0,0.54)' }} />
           }
         </div>
         <div
@@ -82,7 +85,7 @@ class MoveDialog extends React.PureComponent {
     this.state = {
       list: this.props.entries,
       currentDir: Object.assign({}, this.path[this.path.length - 1], { type: 'directory' }),
-      path: [{ name: '我的所有文件', uuid: this.path[0].uuid, type: 'root' }, ...this.path],
+      path: [{ name: '我的盒子', uuid: this.path[0].uuid, type: 'root' }, ...this.path],
       loading: false,
       currentSelectedIndex: -1,
       errorText: '',
@@ -169,7 +172,8 @@ class MoveDialog extends React.PureComponent {
       if (this.state.currentSelectedIndex > -1) this.enter(this.state.list[this.state.currentSelectedIndex])
       this.props.apis.request('mkdir', args, (err, data) => {
         if (err) {
-          this.setState({ errorText: err.message })
+          // this.setState({ errorText: err.message })
+          this.setState({ errorText: '出现错误，请重试！' })
         } else {
           const node = data.entries.find(entry => entry.name === this.state.newFoldName)
           this.enter(node)
@@ -383,7 +387,7 @@ class MoveDialog extends React.PureComponent {
       : type === 'publicRoot'
       ? '共享盘'
       : type === 'root'
-      ? '所有文件'
+      ? '我的盒子'
       : this.state.currentDir.name || this.state.currentDir.label
   }
 
@@ -469,11 +473,13 @@ class MoveDialog extends React.PureComponent {
             this.state.loading
               ? <CircularProgress />
               : this.state.cnf
-              ? <div style={{ fontSize: 14 }}>
-                { `在“${this.state.currentSelectedIndex > -1
+              ? <div style={{ fontSize: 14, width: 288, margin: 24, textAlign: 'center', wordWrap: 'break-word' }}>
+                {
+                  `在“${this.state.currentSelectedIndex > -1
                     ? this.state.list[this.state.currentSelectedIndex].name
-                    : this.renderCurrentDir()}”中创建新文件夹`
-                } </div>
+                      : this.renderCurrentDir()}”中创建新文件夹`
+                }
+              </div>
               : <div style={{ height: '100%', width: '100%' }}>
                 {
                   this.state.list.length ? this.state.list.map((item, index) => (

@@ -68,11 +68,13 @@ class Home extends Base {
     }
 
     this.toggleDialog = (type) => {
+      if (!window.navigator.onLine) return this.ctx.openSnackBar('网络连接已断开，请检查网络设置')
       this.setState({ [type]: !this.state[type] })
     }
 
     /* file or dir operations */
     this.upload = (type) => {
+      if (!window.navigator.onLine) return this.ctx.openSnackBar('网络连接已断开，请检查网络设置')
       const dirPath = this.state.path
       const dirUUID = dirPath[dirPath.length - 1].uuid
       const driveUUID = dirPath[0].uuid
@@ -81,6 +83,7 @@ class Home extends Base {
     }
 
     this.download = () => {
+      if (!window.navigator.onLine) return this.ctx.openSnackBar('网络连接已断开，请检查网络设置')
       const entries = this.state.entries
       const selected = this.state.select.selected
       const path = this.state.path
@@ -97,6 +100,7 @@ class Home extends Base {
     }
 
     this.dupFile = () => {
+      if (!window.navigator.onLine) return this.ctx.openSnackBar('网络连接已断开，请检查网络设置')
       const entries = this.state.entries
       const selected = this.state.select.selected
       const path = this.state.path
@@ -134,10 +138,14 @@ class Home extends Base {
       const dirUUID = path[path.length - 1].uuid
       const driveUUID = this.state.path[0].uuid
 
+      const op = []
       for (let i = 0; i < selected.length; i++) {
         const entryName = entries[selected[i]].name
-        await this.ctx.props.apis.requestAsync('deleteDirOrFile', { driveUUID, dirUUID, entryName })
+        const entryUUID = entries[selected[i]].uuid
+        op.push({ driveUUID, dirUUID, entryName, entryUUID })
       }
+
+      await this.ctx.props.apis.requestAsync('deleteDirOrFile', op)
 
       if (this.state.path[this.state.path.length - 1].uuid === dirUUID) {
         await this.ctx.props.apis.requestAsync('listNavDir', { driveUUID: this.state.path[0].uuid, dirUUID })
@@ -145,6 +153,7 @@ class Home extends Base {
     }
 
     this.delete = () => {
+      if (!window.navigator.onLine) return this.ctx.openSnackBar('网络连接已断开，请检查网络设置')
       this.setState({ loading: true })
       this.deleteAsync().then(() => {
         this.setState({ loading: false, delete: false })
@@ -157,6 +166,7 @@ class Home extends Base {
 
     /* actions */
     this.listNavBySelect = () => {
+      if (!window.navigator.onLine) return this.ctx.openSnackBar('网络连接已断开，请检查网络设置')
       // debug('listNavBySelect', this.select, this.state)
       const selected = this.select.state.selected
       if (selected.length !== 1) return
@@ -170,10 +180,11 @@ class Home extends Base {
       }
     }
 
-    this.refresh = () => {
+    this.refresh = (op) => {
       const rUUID = this.state.path[0].uuid
       const dUUID = this.state.path[this.state.path.length - 1].uuid
       this.ctx.props.apis.request('listNavDir', { driveUUID: rUUID, dirUUID: dUUID })
+      if (op && op.fileName) this.setState({ scrollTo: op.fileName })
     }
 
     this.showContextMenu = (clientX, clientY) => {
@@ -187,7 +198,7 @@ class Home extends Base {
       const maxTop = containerDom.offsetTop + containerDom.offsetHeight - adjust
       const y = clientY > maxTop ? maxTop : clientY
       this.setState({
-        contextMenuOpen: !this.state.inRoot, //not show menu in Public root
+        contextMenuOpen: !this.state.inRoot, // not show menu in Public root
         contextMenuX: x,
         contextMenuY: y
       })
@@ -254,7 +265,10 @@ class Home extends Base {
     const apis = this.ctx.props.apis
     if (!apis || !apis.drives || !apis.drives.data) return
     const homeDrive = apis.drives.data.find(drive => drive.tag === 'home')
-    if (homeDrive) this.ctx.props.apis.request('listNavDir', { driveUUID: homeDrive.uuid, dirUUID: homeDrive.uuid })
+    const preDriveUUID = apis.listNavDir && apis.listNavDir.data && apis.listNavDir.data.path[0].uuid
+    if (homeDrive && preDriveUUID !== homeDrive.uuid) {
+      this.ctx.props.apis.request('listNavDir', { driveUUID: homeDrive.uuid, dirUUID: homeDrive.uuid })
+    }
   }
 
   navLeave() {
@@ -477,7 +491,7 @@ class Home extends Base {
     )
   }
 
-  renderMenu(open, toggleDetail) {
+  renderMenu(open, toggleDetail, getDetailStatus) {
     // debug('renderMenu', open, this.state.contextMenuY, this.state.contextMenuX)
     return (
       <ContextMenu
@@ -535,7 +549,7 @@ class Home extends Base {
                 <div style={{ height: 8 }} />
                 <MenuItem
                   leftIcon={<InfoIcon style={{ height: 20, width: 20, marginTop: 6 }} />}
-                  primaryText="详细信息"
+                  primaryText={getDetailStatus() ? '关闭详情' : '详细信息'}
                   onTouchTap={toggleDetail}
                 />
                 {
@@ -562,7 +576,7 @@ class Home extends Base {
     )
   }
 
-  renderContent({ toggleDetail, openSnackBar, navTo }) {
+  renderContent({ toggleDetail, openSnackBar, navTo, getDetailStatus }) {
     // debug('renderContent', this.state, this.select.state)
     return (
       <div style={{ position: 'relative', width: '100%', height: '100%' }}>
@@ -582,9 +596,10 @@ class Home extends Base {
           sortType={this.state.sortType}
           changeSortType={this.changeSortType}
           gridView={this.state.gridView}
+          scrollTo={this.state.scrollTo}
         />
 
-        { this.renderMenu(this.state.contextMenuOpen, toggleDetail) }
+        { this.renderMenu(this.state.contextMenuOpen, toggleDetail, getDetailStatus) }
 
         { this.renderDialogs(openSnackBar, navTo) }
 
