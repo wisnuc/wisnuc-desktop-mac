@@ -58,6 +58,7 @@ class AdminUsersApp extends React.Component {
       this.props.apis.request('adminUpdateUsers', args, (err) => {
         if (err) {
           debug('err', args, err, err.message)
+          this.props.openSnackBar(`出现错误，请重试`)
         } else {
           this.props.refreshUsers()
           this.setState({ confirmPwd: '' })
@@ -127,14 +128,14 @@ class AdminUsersApp extends React.Component {
         </div>
         */}
         <div style={{ flex: '0 0 50px' }}>
-          {
+          {/*
             user.isFirstUser
             ? <div />
             : <Toggle
               toggled={!user.nologin}
               onToggle={() => this.toggleDialog('disableUser', user)}
             />
-          }
+            */}
         </div>
       </div>
     )
