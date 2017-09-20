@@ -1,83 +1,102 @@
 import os from 'os'
 import Debug from 'debug'
-import { ipcMain, powerSaveBlocker } from 'electron'
 import child from 'child_process'
+import { ipcMain, powerSaveBlocker } from 'electron'
 
 import { getMainWindow } from './window'
-import { userTasks as uploadingTasks, finishTasks as uploadedTasks } from './newUpload'
-import { userTasks as downloadingTasks, finishTasks as downloadedTasks } from './newDownload'
-import TransferManager from './transferManager'
 import store from '../serve/store/store'
 
 const debug = Debug('node:lib:transmissionUpdate:')
 
+const Tasks = []
+
+/* send message */
 let preLength = 0
 let lock = false
 let last = true
 let id = -1 // The power save blocker id returned by powerSaveBlocker.start
 
-const sendInfor = () => {
+const sendMsg = () => {
   if (lock || !last) return (last = true)
   lock = true
-  const concatUserTasks = [].concat(uploadingTasks, downloadingTasks)
-  const concatFinishTasks = [].concat(uploadedTasks, downloadedTasks)
-  const userTasks = concatUserTasks.sort((a, b) => a.createTime - b.createTime) // Ascending
-  const finishTasks = concatFinishTasks.sort((a, b) => b.finishDate - a.finishDate) // Descending
+  const userTasks = []
+  const finishTasks = []
+  Tasks.forEach((t) => {
+    if (t.state === 'finished') finishTasks.push(t)
+    else userTasks.push(t.status())
+  })
+  userTasks.sort((a, b) => a.createTime - b.createTime) // Ascending
+  finishTasks.sort((a, b) => b.finishDate - a.finishDate) // Descending
 
   if (!powerSaveBlocker.isStarted(id) && userTasks.length !== 0 && !store.getState().config.enableSleep) {
     id = powerSaveBlocker.start('prevent-display-sleep')
-    console.log('powerSaveBlocker start', id, powerSaveBlocker.isStarted(id))
+    // console.log('powerSaveBlocker start', id, powerSaveBlocker.isStarted(id))
   }
 
   /* send message when all tasks finished */
   if (preLength !== 0 && userTasks.length === 0) {
     if (powerSaveBlocker.isStarted(id)) {
       powerSaveBlocker.stop(id)
-      console.log('powerSaveBlocker stop', id, powerSaveBlocker.isStarted(id))
+      // console.log('powerSaveBlocker stop', id, powerSaveBlocker.isStarted(id))
     }
     getMainWindow().webContents.send('snackbarMessage', { message: '文件传输任务完成' })
   }
-
   preLength = userTasks.length
+
+  /* Error: Object has been destroyed */
   try {
-    getMainWindow().webContents.send(
-      'UPDATE_TRANSMISSION',
-      userTasks.map(item => item.getSummary()),
-      finishTasks.map(i => (i.getSummary ? i.getSummary() : i))
-    )
+    getMainWindow().webContents.send('UPDATE_TRANSMISSION', [...userTasks], [...finishTasks])
   } catch (error) {
-    /* Error: Object has been destroyed */
-    if (error) {
-      console.error(error)
-    }
+    console.error(error)
   }
-  setTimeout(() => { lock = false; sendInfor() }, 200)
-  // debug('sendInfor end')
+  setTimeout(() => { lock = false; sendMsg() }, 200)
   return (last = false)
 }
 
-// handle will open dialog from electron to clean record of the task have been downloaded
-const cleanRecordHandle = () => {
-  if (uploadedTasks.length === 0 && downloadedTasks.length === 0) return
+const actionHandler = (e, uuids, type) => {
+  if (!Tasks.length || !uuids || !uuids.length) return
 
-  global.db.uploaded.remove({}, { multi: true }, (err) => {
-    if (err) return debug(err)
-    uploadedTasks.length = 0
+  let func
+  switch (type) {
+    case 'DELETE':
+      func = (task) => {
+        if (typeof task.pause === 'function') task.pause()
+        Tasks.splice(Tasks.indexOf(task), 1)
+        global.db.task.remove({ _id: task.uuid }, { multi: true }, err => err && debug('DELETE_RUNNING error: ', err))
+      }
+      break
+    case 'PAUSE':
+      func = task => task.pause()
+      break
+    case 'RESUME':
+      func = task => task.resume()
+      break
+    default:
+      func = () => debug('error in actionHandler: no such action')
+  }
 
-    global.db.downloaded.remove({}, { multi: true }, (err) => {
-      if (err) return debug(err)
-      downloadedTasks.length = 0
-      sendInfor()
-    })
+  uuids.forEach((u) => {
+    const task = Tasks.find(t => t.uuid === u)
+    if (task) func(task)
   })
+  debug(type, uuids)
+  sendMsg()
 }
 
-const openHandle = (e, tasks) => {
+const clearTasks = () => {
+  debug('clearTasks !!')
+  Tasks.forEach(task => task.state !== 'finished' && task.pause())
+  Tasks.length = 0
+  sendMsg()
+}
+
+/* ipc listeners */
+ipcMain.on('GET_TRANSMISSION', sendMsg)
+
+ipcMain.on('OPEN_TRANSMISSION', (e, tasks) => { // FIXME
   const osType = os.platform()
   tasks.forEach((task) => {
-    const pathProperty = task.trsType === 'download' ? 'downloadPath' : 'abspath'
-    const taskPath = task.trsType === 'download' ?
-      task[pathProperty] : task[pathProperty].substring(0, task[pathProperty].lastIndexOf('\\'))
+    const taskPath = task.downloadPath
     debug('打开目录的文件资源管理器', taskPath) // FIXME
     switch (osType) {
       case 'win32':
@@ -92,14 +111,20 @@ const openHandle = (e, tasks) => {
       default :
     }
   })
-}
+})
 
-const transferHandle = (event, args) => {
-  TransferManager.addTask(args)
-}
+ipcMain.on('PAUSE_TASK', (e, uuids) => actionHandler(e, uuids, 'PAUSE'))
+ipcMain.on('RESUME_TASK', (e, uuids) => actionHandler(e, uuids, 'RESUME'))
+ipcMain.on('DELETE_TASK', (e, uuids) => actionHandler(e, uuids, 'DELETE'))
 
-ipcMain.on('OPEN_TRANSMISSION', openHandle)
-ipcMain.on('CLEAN_RECORD', cleanRecordHandle)
-ipcMain.on('TRANSFER', transferHandle)
+ipcMain.on('START_TRANSMISSION', () => {
+  global.db.task.find({}, (error, tasks) => {
+    if (error) return debug('load nedb store error', error)
+    // debug('startTransmissionHandle', tasks)
+    tasks.forEach(t => t.state === 'finished' && Tasks.push(t))
+  })
+})
 
-export default sendInfor
+ipcMain.on('LOGIN_OUT', clearTasks)
+
+export { Tasks, sendMsg, clearTasks }

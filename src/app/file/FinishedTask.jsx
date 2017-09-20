@@ -3,6 +3,7 @@ import FolderSvg from 'material-ui/svg-icons/file/folder'
 import FileSvg from 'material-ui/svg-icons/editor/insert-drive-file'
 import DownloadSvg from 'material-ui/svg-icons/file/file-download'
 import UploadSvg from 'material-ui/svg-icons/file/file-upload'
+import MultiSvg from 'material-ui/svg-icons/content/content-copy'
 
 const svgStyle = { color: '#000', opacity: 0.54 }
 
@@ -27,8 +28,8 @@ class FinishedTask extends Component {
 
     this.openFileLocation = () => {
       console.log('this.openFileLocation')
-      clearTimeout(this.time)
-      if (this.props.task.trsType === 'download') this.time = setTimeout(this.props.open, 200)
+      if (this.props.task.trsType === 'download') setImmediate(this.props.open)
+      else setImmediate(this.props.openInDrive)
     }
   }
 
@@ -75,19 +76,24 @@ class FinishedTask extends Component {
 
         {/* task item type */}
         <div style={{ flex: '0 0 32px' }}>
-          { (task.type === 'folder' || task.type === 'directory') ? <FolderSvg style={svgStyle} /> : <FileSvg style={svgStyle} /> }
+          { task.entries.length > 1 ? <MultiSvg style={svgStyle} /> : task.taskType === 'file' ? <FileSvg style={svgStyle} /> : <FolderSvg style={svgStyle} /> }
         </div>
 
         {/* task item name */}
-        <div
-          style={{
-            flexGrow: 1,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap'
-          }}
-        >
-          {task.name}
+        <div style={{ display: 'flex', flexGrow: 1, alignItems: 'center' }}>
+          <div
+            style={{
+              maxWidth: 540,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            { task.name }
+          </div>
+          <div>
+            { task.entries.length > 1 && ` 等${task.entries.length}个项目` }
+          </div>
         </div>
 
         <div style={{ flex: '0 0 32px' }} />

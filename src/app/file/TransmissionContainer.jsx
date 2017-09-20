@@ -9,6 +9,7 @@ import PauseSvg from 'material-ui/svg-icons/av/pause'
 
 import RunningTask from './RunningTask'
 import FinishedTask from './FinishedTask'
+import ErrorDialogInTrans from './ErrorDialogInTrans'
 import FlatButton from '../common/FlatButton'
 import DialogOverlay from '../common/DialogOverlay'
 
@@ -30,7 +31,8 @@ class TrsContainer extends React.Component {
       userTasks: [],
       finishTasks: [],
       clearRunningDialog: false,
-      clearFinishedDialog: false
+      clearFinishedDialog: false,
+      errors: null
     }
 
     this.taskSelected = []
@@ -60,90 +62,14 @@ class TrsContainer extends React.Component {
       })
     }
 
-    this.delete = () => {
-      const downloadArr = []
-      const uploadArr = []
-      this.state.tasks.forEach((item) => {
-        if (item.trsType === 'download') downloadArr.push(item)
-        else uploadArr.push(item)
-      })
-
-      ipcRenderer.send(this.taskSelected.length ? 'DELETE_DOWNLOADING' : 'DELETE_DOWNLOADED', downloadArr)
-      ipcRenderer.send(this.taskSelected.length ? 'DELETE_UPLOADING' : 'DELETE_UPLOADED', uploadArr)
-    }
-
-    this.open = () => {
-      debug('this.open', this.state.tasks)
-      ipcRenderer.send('OPEN_TRANSMISSION', this.state.tasks)
-    }
-
-    this.pause = (uuid, type) => {
-      if (type === 'download') ipcRenderer.send('PAUSE_DOWNLOADING', uuid)
-      else ipcRenderer.send('PAUSE_UPLOADING', uuid)
-    }
-
-    this.resume = (uuid, type) => {
-      if (type === 'download') ipcRenderer.send('RESUME_DOWNLOADING', uuid)
-      else ipcRenderer.send('RESUME_UPLOADING', uuid)
-    }
-
-    this.cleanRecord = () => {
-      ipcRenderer.send('CLEAN_RECORD')
-    }
-
-    this.cleanTaskSelect = () => {
-      this.taskSelected.forEach((item) => {
-        if (this.refs[item]) {
-          this.refs[item].updateDom(false)
-        }
-      })
-      this.taskSelected.length = 0 // need to keep the same reference
-    }
-
-    this.cleanFinishSelect = () => {
-      this.finishSelected.forEach((item) => {
-        if (this.refs[item]) {
-          this.refs[item].updateDom(false)
-        }
-      })
-      this.finishSelected.length = 0 // need to keep the same reference
-    }
-
     this.openMenu = (event, obj) => {
+      debug('this.openMenu', obj.tasks)
       const containerDom = document.getElementById('content-container')
       const maxLeft = containerDom.offsetLeft + containerDom.clientWidth - 168
       const x = event.clientX > maxLeft ? maxLeft : event.clientX
       const maxTop = containerDom.offsetTop + containerDom.offsetHeight - (16 + 96 + (obj.play + obj.pause) * 48)
       const y = event.clientY > maxTop ? maxTop : event.clientY
       this.setState({ menuShow: true, x, y, play: obj.play, pause: obj.pause, tasks: obj.tasks })
-    }
-
-    this.playAll = (tasks) => {
-      // debug('this.play', tasks)
-      tasks.forEach((item) => {
-        if (item.trsType === 'download') ipcRenderer.send('RESUME_DOWNLOADING', item.uuid)
-        else ipcRenderer.send('RESUME_UPLOADING', item.uuid)
-      })
-    }
-
-    this.pauseAll = (tasks) => {
-      // debug('this.pause', tasks)
-      tasks.forEach((item) => {
-        if (item.trsType === 'download') ipcRenderer.send('PAUSE_DOWNLOADING', item.uuid)
-        else ipcRenderer.send('PAUSE_UPLOADING', item.uuid)
-      })
-    }
-
-    this.deleteAll = (tasks) => {
-      const downloadArr = []
-      const uploadArr = []
-      tasks.forEach((item) => {
-        if (item.trsType === 'download') downloadArr.push(item)
-        else uploadArr.push(item)
-      })
-
-      ipcRenderer.send('DELETE_DOWNLOADING', downloadArr)
-      ipcRenderer.send('DELETE_UPLOADING', uploadArr)
     }
 
     this.select = (type, id, isSelected, index, e) => {
@@ -233,13 +159,61 @@ class TrsContainer extends React.Component {
         /* add play or pause option to running task */
         if (type === 'running') {
           for (let i = 0; i < tasks.length; i++) {
-            if (tasks[i].pause) play = true
+            if (tasks[i].paused) play = true
             else pause = true
           }
         }
 
         this.openMenu(e, { type, pause, play, tasks })
       }
+    }
+
+    this.cleanTaskSelect = () => {
+      this.taskSelected.forEach((item) => {
+        if (this.refs[item]) {
+          this.refs[item].updateDom(false)
+        }
+      })
+      this.taskSelected.length = 0 // need to keep the same reference
+    }
+
+    this.cleanFinishSelect = () => {
+      this.finishSelected.forEach((item) => {
+        if (this.refs[item]) {
+          this.refs[item].updateDom(false)
+        }
+      })
+      this.finishSelected.length = 0 // need to keep the same reference
+    }
+
+    /* ipc communication */
+    this.pause = (uuid) => {
+      ipcRenderer.send('PAUSE_TASK', [uuid])
+    }
+
+    this.resume = (uuid) => {
+      ipcRenderer.send('RESUME_TASK', [uuid])
+    }
+
+    /* type: 'PAUSE', 'RESUME', 'DELETE' */
+    this.handleAll = (tasks, type) => {
+      debug('ipcRenderer.send', `${type}_TASK`, tasks.map(t => t.uuid))
+      ipcRenderer.send(`${type}_TASK`, tasks.map(t => t.uuid))
+    }
+
+    this.open = () => {
+      debug('this.open', this.state.tasks)
+      ipcRenderer.send('OPEN_TRANSMISSION', this.state.tasks)
+    }
+
+    this.openInDrive = () => {
+      debug('this.openInDrive', this.state.tasks)
+      const { driveUUID, dirUUID } = this.state.tasks[0]
+      this.props.navToDrive(driveUUID, dirUUID)
+    }
+
+    this.openErrorDialog = (errors) => {
+      this.setState({ errors })
     }
 
     this.updateTransmission = (e, userTasks, finishTasks) => {
@@ -261,7 +235,7 @@ class TrsContainer extends React.Component {
   }
 
   render() {
-    debug('render TrsContainer')
+    // debug('render TrsContainer')
     const userTasks = this.state.userTasks
     const finishTasks = this.state.finishTasks
 
@@ -280,10 +254,10 @@ class TrsContainer extends React.Component {
       margin: '8px 88px 12px 88px'
     }
 
-    /* show playAll button when allPaused = true */
+    /* show resumeAll button when allPaused = true */
     let allPaused = true
     userTasks.forEach((task) => {
-      if (!task.pause) {
+      if (!task.paused) {
         allPaused = false
       }
     })
@@ -305,13 +279,13 @@ class TrsContainer extends React.Component {
                     label="全部开始"
                     disabled={!userTasks.length}
                     icon={<PlaySvg style={{ color: '#000', opacity: 0.54 }} />}
-                    onTouchTap={() => this.playAll(userTasks)}
+                    onTouchTap={() => this.handleAll(userTasks, 'RESUME')}
                   /> :
                   <FlatButton
                     label="全部暂停"
                     disabled={!userTasks.length}
                     icon={<PauseSvg style={{ color: '#000', opacity: 0.54 }} />}
-                    onTouchTap={() => this.pauseAll(userTasks)}
+                    onTouchTap={() => this.handleAll(userTasks, 'PAUSE')}
                   />
               }
             <FlatButton
@@ -339,6 +313,8 @@ class TrsContainer extends React.Component {
         pause={this.pause}
         resume={this.resume}
         select={this.select}
+        delete={() => this.toggleDialog('deleteRunningDialog')}
+        openErrorDialog={this.openErrorDialog}
       />
     )))
 
@@ -375,6 +351,7 @@ class TrsContainer extends React.Component {
         task={task}
         select={this.select}
         open={this.open}
+        openInDrive={this.openInDrive}
       />
     )))
 
@@ -425,15 +402,53 @@ class TrsContainer extends React.Component {
             >
               <Paper style={{ position: 'absolute', top: this.state.y, left: this.state.x }}>
                 <Menu>
-                  { this.state.play && <MenuItem primaryText="继续" onTouchTap={() => this.playAll(this.state.tasks)} /> }
-                  { this.state.pause && <MenuItem primaryText="暂停" onTouchTap={() => this.pauseAll(this.state.tasks)} /> }
+                  {
+                    this.state.play &&
+                      <MenuItem
+                        primaryText={this.state.tasks[0].state === 'failed' ? '重试' : '继续'}
+                        onTouchTap={() => this.handleAll(this.state.tasks, 'RESUME')}
+                      />
+                  }
+                  { this.state.pause && <MenuItem primaryText="暂停" onTouchTap={() => this.handleAll(this.state.tasks, 'PAUSE')} /> }
                   { this.state.tasks[0].trsType === 'download' && <MenuItem primaryText="打开所在文件夹" onTouchTap={this.open} /> }
-                  <MenuItem primaryText="删除" onTouchTap={this.delete} />
+                  { this.state.tasks[0].trsType === 'upload' && <MenuItem primaryText="查看所在目录" onTouchTap={this.openInDrive} /> }
+                  { this.state.play && <MenuItem primaryText="删除" onTouchTap={() => this.toggleDialog('deleteRunningDialog')} /> }
+                  { this.state.tasks[0].state === 'finished' &&
+                  <MenuItem primaryText="删除" onTouchTap={() => this.handleAll(this.state.tasks, 'DELETE')} /> }
                 </Menu>
               </Paper>
             </div>
           )
         }
+        {/* Delete Runing Tasks Dialog */}
+        <DialogOverlay open={!!this.state.deleteRunningDialog}>
+          <div>
+            {
+              this.state.deleteRunningDialog &&
+                <div style={{ width: 320, padding: '24px 24px 0px 24px' }}>
+                  <div style={{ fontSize: 20, fontWeight: 500, color: 'rgba(0,0,0,0.87)' }}>
+                    { '要取消选中的任务吗？' }
+                  </div>
+                  <div style={{ height: 20 }} />
+                  <div style={{ color: 'rgba(0,0,0,0.54)' }}>
+                    { '但如果是下载或上传的是文件夹，文件夹内已完成的文件将保留。' }
+                  </div>
+                  <div style={{ height: 24 }} />
+                  <div style={{ height: 52, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', marginRight: -24 }}>
+                    <FlatButton label="放弃" primary onTouchTap={() => this.toggleDialog('deleteRunningDialog')} keyboardFocused />
+                    <FlatButton
+                      label="取消任务"
+                      primary
+                      onTouchTap={() => {
+                        this.toggleDialog('deleteRunningDialog')
+                        this.handleAll(this.state.tasks, 'DELETE')
+                      }}
+                    />
+                  </div>
+                </div>
+            }
+          </div>
+        </DialogOverlay>
 
         {/* clear Running Tasks dialog */}
         <DialogOverlay open={!!this.state.clearRunningDialog}>
@@ -456,7 +471,7 @@ class TrsContainer extends React.Component {
                       primary
                       onTouchTap={() => {
                         this.toggleDialog('clearRunningDialog')
-                        this.deleteAll(userTasks)
+                        this.handleAll(userTasks, 'DELETE')
                       }}
                     />
                   </div>
@@ -485,14 +500,19 @@ class TrsContainer extends React.Component {
                       label="清除"
                       primary
                       onTouchTap={() => {
+                        this.handleAll(this.state.finishTasks, 'DELETE')
                         this.toggleDialog('clearFinishedDialog')
-                        this.cleanRecord()
                       }}
                     />
                   </div>
                 </div>
             }
           </div>
+        </DialogOverlay>
+
+        {/* error dialog */}
+        <DialogOverlay open={!!this.state.errors} onRequestClose={() => this.setState({ errors: null })}>
+          { this.state.errors && <ErrorDialogInTrans errors={this.state.errors} resume={this.resume} /> }
         </DialogOverlay>
       </div>
     )

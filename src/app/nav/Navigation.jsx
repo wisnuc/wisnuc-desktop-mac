@@ -1,16 +1,15 @@
-import React, { Component, PureComponent } from 'react'
+import React from 'react'
+import Debug from 'debug'
 import { ipcRenderer } from 'electron'
 
-import Radium from 'radium'
-import { Paper, IconButton, Menu, Drawer, Divider, Snackbar } from 'material-ui'
-
+import { Paper, IconButton, Snackbar } from 'material-ui'
 import SocialNotifications from 'material-ui/svg-icons/social/notifications'
 import ActionInfo from 'material-ui/svg-icons/action/info'
-import NavigationExpandMore from 'material-ui/svg-icons/navigation/expand-more'
-import NavigationExpandLess from 'material-ui/svg-icons/navigation/expand-less'
 
-import { sharpCurve, sharpCurveDuration, sharpCurveDelay } from '../common/motion'
 import Fruitmix from '../common/fruitmix'
+import DialogOverlay from '../common/DialogOverlay'
+import Policy from '../common/Policy'
+import { sharpCurve, sharpCurveDuration, sharpCurveDelay } from '../common/motion'
 
 import NavDrawer from './NavDrawer'
 import QuickNav from './QuickNav'
@@ -18,21 +17,14 @@ import QuickNav from './QuickNav'
 import Home from '../view/Home'
 import Public from '../view/Public'
 import Physical from '../view/Physical'
-import FileSharedWithMe from '../view/FileSharedWithMe'
-import FileSharedWithOthers from '../view/FileSharedWithOthers'
 import Transmission from '../view/Transmission'
 
 import Media from '../view/Media'
 import Assistant from '../view/Assistant'
-import MediaShare from '../view/MediaShare'
-import MediaAlbum from '../view/MediaAlbum'
-
 import Trash from '../view/Trash'
-
 import Account from '../view/Account'
 import Docker from '../view/Docker'
 import InstalledApps from '../view/InstalledApps'
-
 import AdminUsers from '../view/AdminUsers'
 import AdminDrives from '../view/AdminDrives'
 import Device from '../view/Device'
@@ -41,14 +33,12 @@ import Networking from '../view/Networking'
 import TimeDate from '../view/TimeDate'
 import FanControl from '../view/FanControl'
 import ClientUpdate from '../view/ClientUpdate'
-import Settings from '../view/Settings.jsx'
+import Settings from '../view/Settings'
 import Power from '../view/Power'
-
-import Debug from 'debug'
 
 const debug = Debug('component:nav:Navigation')
 
-class NavViews extends Component {
+class NavViews extends React.Component {
 
   constructor(props) {
     super(props)
@@ -92,13 +82,15 @@ class NavViews extends Component {
       nav: null,
       showDetail: false,
       openDrawer: false,
-      snackBar: ''
+      snackBar: '',
+      conflicts: null
     })
 
     this.toggleDetailBound = this.toggleDetail.bind(this)
     this.getDetailStatusBound = this.getDetailStatus.bind(this)
     this.openDrawerBound = this.openDrawer.bind(this)
     this.openSnackBarBound = this.openSnackBar.bind(this)
+    this.navToDriveBound = this.navToDrive.bind(this)
   }
 
   install(name, View) {
@@ -107,31 +99,37 @@ class NavViews extends Component {
     this.state.home = this.views[name].state
   }
 
-  componentWillReceiveProps(nextProps) {
-    /* Calling this.setState generally doesn't trigger componentWillReceiveProps. */
-  }
-
   componentDidMount() {
     this.navTo('home')
     ipcRenderer.send('START_TRANSMISSION')
     ipcRenderer.on('snackbarMessage', (e, message) => {
       this.openSnackBar(message.message)
     })
-  }
-
-  componentWillUnmount() {
+    ipcRenderer.on('conflicts', (e, args) => {
+      debug('ipcRnederer on conflicts', args)
+      this.setState({ conflicts: args })
+    })
   }
 
   componentDidUpdate() {
     this.currentView().willReceiveProps(this.props)
   }
 
-  navTo(nav) {
-    this.setState({ nav, openDrawer: false, showDetail: false })
+  navTo(nav, target) {
+    debug('navTo', nav, target, this.state.nav)
     if (nav === this.state.nav) return
+    this.setState({ nav, openDrawer: false, showDetail: false })
     if (this.state.nav) this.views[this.state.nav].navLeave()
     this.props.setPalette(this.views[nav].primaryColor(), this.views[nav].accentColor())
-    this.views[nav].navEnter()
+    this.views[nav].navEnter(target)
+  }
+
+  navToDrive(driveUUID, dirUUID) {
+    const drives = this.props.apis.drives.data // no drives ?
+    const drive = drives.find(d => d.uuid === driveUUID)
+    if (drive.tag === 'home') this.navTo('home', { driveUUID, dirUUID })
+    else this.navTo('public', { driveUUID, dirUUID })
+    debug('navToDrive', driveUUID, dirUUID, this.props)
   }
 
   // not used, decorate onto navmap ? TODO
@@ -181,7 +179,7 @@ class NavViews extends Component {
 
     /* is admin ? */
     let isAdmin = false
-    const account = this.views.account.ctx.props.apis.account
+    const account = this.props.apis.account
     // debug('renderQuickNavs', account)
     if (!account.isPending() && !account.isRejected() && account.value() && account.value().isAdmin) {
       isAdmin = true
@@ -436,7 +434,8 @@ class NavViews extends Component {
                   navTo: this.navTo.bind(this),
                   toggleDetail: this.toggleDetailBound,
                   openSnackBar: this.openSnackBarBound,
-                  getDetailStatus: this.getDetailStatusBound
+                  getDetailStatus: this.getDetailStatusBound,
+                  navToDrive: this.navToDriveBound
                 })
               }
             </div>
@@ -457,6 +456,18 @@ class NavViews extends Component {
 
         {/* snackBar */}
         { this.renderSnackBar() }
+
+        {/* upload policy */}
+        <DialogOverlay open={!!this.state.conflicts} onRequestClose={() => this.setState({ conflicts: null })} >
+          {
+            this.state.conflicts &&
+              <Policy
+                primaryColor={this.currentView().primaryColor()}
+                data={this.state.conflicts}
+                ipcRenderer={ipcRenderer}
+              />
+          }
+        </DialogOverlay>
       </div>
     )
   }
@@ -468,7 +479,7 @@ class NavViews extends Component {
   to process states like componentWillReceiveProps does. React props is essentially an
   event routing.
 **/
-class Navigation extends Component {
+class Navigation extends React.Component {
 
   constructor(props) {
     super(props)

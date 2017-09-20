@@ -309,7 +309,7 @@ class Media extends Base {
           uuid: photo.hash
         }))
 
-      ipcRenderer.send('DOWNLOAD', { folders: [], files: photos, dirUUID: 'media' })
+      ipcRenderer.send('DOWNLOAD', { entries: photos, dirUUID: 'media' })
       this.setState({ selectedItems: [] })
     }
 
@@ -380,7 +380,6 @@ class Media extends Base {
       l.forEach(b => map.delete(b))
       return [...map.values()]
     }
-
 
     const preValue = media.value()
     const blValue = blacklist.value()

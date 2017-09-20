@@ -9,7 +9,7 @@ import store from '../serve/store/store'
 
 Promise.promisifyAll(fs) // babel would transform Promise to bluebird
 
-const debug = Debug('lib:server')
+const debug = Debug('node:lib:server')
 const getIpAddr = () => store.getState().login.device.mdev.address
 const getToken = () => store.getState().login.device.token.data.token
 const getTmpPath = () => store.getState().config.tmpPath
@@ -29,7 +29,7 @@ const requestGet = (url, qs, token, callback) => {
     opts.auth = token
   }
 
-  debug('requestGet, opts', opts)
+  // debug('requestGet, opts', opts)
 
   request.get(opts, (err, res) => {
     if (err) return callback(err)
@@ -99,7 +99,7 @@ const requestPost = (url, token, body, callback) => {
     'Content-Type': 'application/json'
   }
 
-  debug('requestPost', opts)
+  // debug('requestPost', opts)
   request(opts, (err, res) => {
     if (err) return callback(err)
     if (res.statusCode !== 200) {
@@ -121,7 +121,7 @@ const requestPatch = (url, token, body, callback) => {
     'Content-Type': 'application/json'
   }
 
-  debug('requestPatch', opts)
+  // debug('requestPatch', opts)
 
   request(opts, (err, res) => {
     if (err) return callback(err)
@@ -141,7 +141,7 @@ const requestDelete = (url, token, callback) => {
   const opts = { method: 'DELETE', url }
   opts.headers = { Authorization: `JWT ${token}` }
 
-  debug('requestDelete, opts', opts)
+  // debug('requestDelete, opts', opts)
 
   request(opts, (err, res) => {
     if (err) return callback(err)
@@ -167,7 +167,7 @@ export const retrieveUsers = async (token) => {
 }
 
 export const serverGetAsync = async (endpoint, qs) => {
-  debug('serverGetAsync', endpoint, qs)
+  // debug('serverGetAsync', endpoint, qs)
 
   const ip = getIpAddr()
   const port = 3000
@@ -261,6 +261,134 @@ export const uploadFileWithStream = (driveUUID, dirUUID, name, part, readStream,
 export const uploadFileWithStreamAsync = Promise.promisify(uploadFileWithStream)
 
 /**
+Upload multiple files in one request.post
+
+@param {string} driveUUID
+@param {string} dirUUID
+@param {Object[]} Files
+@param {string} Files[].name
+@param {Object} Files[].parts
+@param {Object} Files[].readStream
+@param {function} callback
+*/
+
+export class UploadMultipleFiles {
+  constructor(driveUUID, dirUUID, Files, callback) {
+    this.driveUUID = driveUUID
+    this.dirUUID = dirUUID
+    this.Files = Files
+    this.callback = callback
+    this.handle = null
+  }
+
+  upload() {
+    initArgs()
+
+    const op = { url: `${server}/drives/${this.driveUUID}/dirs/${this.dirUUID}/entries`, headers: { Authorization } }
+
+    this.handle = request.post(op, (err, res) => {
+      if (err) this.finish(err)
+      else if (res && res.statusCode === 200) this.finish(null)
+      else this.finish(JSON.parse(res.body))
+    })
+
+    const form = this.handle.form()
+
+    this.Files.forEach((file) => {
+      const { name, parts, readStreams, policy } = file
+      for (let i = 0; i < parts.length; i++) {
+        const rs = readStreams[i]
+        const part = parts[i]
+        let formDataOptions = {
+          size: part.end ? part.end - part.start + 1 : 0,
+          sha256: part.sha
+        }
+        if (part.start) {
+          formDataOptions = Object.assign(formDataOptions, { append: part.fingerprint })
+        } else if (policy && policy.mode === 'replace') {
+          form.append(name, JSON.stringify({ op: 'remove', uuid: policy.remoteUUID }))
+          // Object.assign(formDataOptions, { overwrite: policy.remoteUUID })
+        }
+        form.append(name, rs, JSON.stringify(formDataOptions))
+      }
+    })
+  }
+
+  finish(error) {
+    if (this.finished) return
+    this.finished = true
+    this.callback(error)
+  }
+
+  abort() {
+    if (this.handle) this.handle.abort()
+  }
+}
+
+export class DownloadFile {
+  constructor(driveUUID, dirUUID, entryUUID, fileName, size, seek, stream, callback) {
+    this.driveUUID = driveUUID
+    this.dirUUID = dirUUID
+    this.entryUUID = entryUUID
+    this.fileName = fileName
+    this.seek = seek || 0
+    this.size = size
+    this.stream = stream
+    this.callback = callback
+    this.handle = null
+  }
+
+  download() {
+    initArgs()
+    const options = {
+      method: 'GET',
+      url: this.dirUUID === 'media'
+      ? `${server}/media/${this.entryUUID}`
+      : `${server}/drives/${this.driveUUID}/dirs/${this.dirUUID}/entries/${this.entryUUID}`,
+
+      headers: {
+        Authorization,
+        Range: this.size ? `bytes=${this.seek}-` : undefined
+      },
+      qs: this.dirUUID === 'media' ? { alt: 'data' } : { name: this.fileName }
+    }
+
+    this.handle = request(options)
+
+    this.handle.on('error', error => this.finish(error))
+
+    this.handle.pipe(this.stream)
+  }
+
+  abort() {
+    debug('download abort', this.fileName)
+    this.finish(null)
+    if (this.handle) this.handle.abort()
+  }
+
+  finish(error) {
+    if (this.finished) return
+    this.callback(error)
+    this.finished = true
+  }
+}
+
+/* return a new file name */
+const getName = (name, nameSpace) => {
+  let checkedName = name
+  const extension = name.replace(/^.*\./, '')
+  for (let i = 1; nameSpace.includes(checkedName); i++) {
+    if (!extension || extension === name) {
+      checkedName = `${name}(${i})`
+    } else {
+      const pureName = name.match(/^.*\./)[0]
+      checkedName = `${pureName.slice(0, pureName.length - 1)}(${i}).${extension}`
+    }
+  }
+  return checkedName
+}
+
+/**
 createFold
 
 @param {string} driveUUID
@@ -269,43 +397,42 @@ createFold
 @param {function} callback
 */
 
-export const createFold = (driveUUID, dirUUID, dirname, callback) => {
+export const createFold = (driveUUID, dirUUID, dirname, localEntries, policy, callback) => {
   initArgs()
-  const op = {
-    url: `${server}/drives/${driveUUID}/dirs/${dirUUID}/entries`,
-    headers: { Authorization },
-    formData: {
-      [dirname]: JSON.stringify({ op: 'mkdir' })
-    }
-  }
 
-  const op2 = {
-    url: `${server}/drives/${driveUUID}/dirs/${dirUUID}`,
-    headers: { Authorization }
-  }
+  const parents = true // mkdirp
 
-  /*
-  console.log(`>>>>>>>>>>>create Fold`)
-  console.log(op)
-  console.log('<<<<<<<<<<< start')
-  */
-  request.post(op, (error) => {
+  const op = { url: `${server}/drives/${driveUUID}/dirs/${dirUUID}/entries`, headers: { Authorization } }
+
+  const handle = request.post(op, (error, res) => {
     if (error) {
-      console.log('error', error)
-      if (callback) callback(error)
-    } else {
-      request.get(op2, (err, data) => {
-        if (err) {
-          if (callback) callback(err)
-          console.log('error', data)
-        } else {
-          // console.log(`create Fold ${dirname} success`)
-          if (callback) callback(err, JSON.parse(data.body).entries)
-          return JSON.parse(data.body).entries
-        }
-      })
-    }
+      debug('createFold error', error, res)
+      callback(error)
+    } else if (res && res.statusCode === 200) {
+      /* callback the created dir entry */
+      callback(null, JSON.parse(res.body).entries.find(e => e.name === dirname))
+    } else if (res && res.statusCode === 403 && (policy.mode === 'overwrite' || policy.mode === 'merge')) {
+      /* when a file with the same name in remote, retry if given policy of overwrite or merge */
+      serverGetAsync(`drives/${driveUUID}/dirs/${dirUUID}`)
+        .then((listNav) => {
+          const entries = listNav.entries
+          const index = entries.findIndex(e => e.name === dirname)
+          if (index > -1) {
+            const nameSpace = [...entries.map(e => e.name), localEntries.map(e => e.replace(/^.*\//, ''))]
+            const mode = policy.mode === 'overwrite' ? 'replace' : 'rename'
+            const checkedName = policy.mode === 'overwrite' ? dirname : getName(dirname, nameSpace)
+            const remoteUUID = entries[index].uuid
+            debug('retry createFold', dirname, mode, checkedName, remoteUUID)
+            createFold(driveUUID, dirUUID, checkedName, localEntries, { mode, checkedName, remoteUUID }, callback)
+          } else callback(JSON.parse(res.body))
+        })
+        .catch(e => callback(e))
+    } else callback(JSON.parse(res.body)) // response code not 200 and no policy
   })
+
+  const form = handle.form()
+  if (policy && policy.mode === 'replace') form.append(dirname, JSON.stringify({ op: 'remove', uuid: policy.remoteUUID }))
+  form.append(dirname, JSON.stringify({ op: 'mkdir', parents }))
 }
 
 export const createFoldAsync = Promise.promisify(createFold)

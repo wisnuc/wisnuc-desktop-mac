@@ -1,11 +1,17 @@
 import React from 'react'
+import Debug from 'debug'
+import { IconButton } from 'material-ui'
+import DeleteSvg from 'material-ui/svg-icons/action/delete'
 import FileSvg from 'material-ui/svg-icons/editor/insert-drive-file'
 import FolderSvg from 'material-ui/svg-icons/file/folder'
 import PlaySvg from 'material-ui/svg-icons/av/play-arrow'
 import PauseSvg from 'material-ui/svg-icons/av/pause'
+import InfoSvg from 'material-ui/svg-icons/action/info'
 import DownloadSvg from 'material-ui/svg-icons/file/file-download'
 import UploadSvg from 'material-ui/svg-icons/file/file-upload'
+import MultiSvg from 'material-ui/svg-icons/content/content-copy'
 
+const debug = Debug('component:file:RunningTask: ')
 const svgStyle = { color: '#000', opacity: 0.54 }
 class RunningTask extends React.Component {
   constructor(props) {
@@ -26,50 +32,85 @@ class RunningTask extends React.Component {
 
     this.toggleTask = () => {
       const task = this.props.task
-      if (task.pause) {
-        this.props.resume(task.uuid, task.trsType)
-      } else {
-        this.props.pause(task.uuid, task.trsType)
-      }
+      if (task.paused) this.props.resume(task.uuid)
+      else this.props.pause(task.uuid)
+    }
+
+    this.checkError = () => {
+      debug('this.checkError', this.props.task)
+      this.props.openErrorDialog(this.props.task.errors)
     }
   }
 
   getStatus(task) {
-    if (task.state === 'failed') return '失败'
-    if (task.pause) return '暂停'
+    if (task.state === 'failed') return '已停止'
+    if (task.paused) return '已暂停'
     if (task.state === 'visitless') return '等待中'
-    if (task.state === 'visiting') return '正在校验本地文件'
-    if (task.state === 'diffing') return '正在校验本地文件'
+    if (task.state === 'hashing') return '正在校验'
+    if (task.state === 'diffing') return '正在校验'
+    if (task.state === 'uploadless') return '等待上传'
+    if (task.state === 'uploading') return '正在上传'
+    if (task.state === 'downloadless') return '等待下载'
+    if (task.state === 'downloading') return '正在下载'
     if (task.state === 'finish') return '已完成'
+    return '未知状态'
+  }
+
+  formatSize(s) {
+    const size = parseFloat(s, 10)
+    if (!size) return `${0} KB`
+    if (size < 1024) return `${size.toFixed(2)} B`
+    else if (size < (1024 * 1024)) return `${(size / 1024).toFixed(2)} KB`
+    else if (size < (1024 * 1024 * 1024)) return `${(size / 1024 / 1024).toFixed(2)} MB`
+    return `${(size / 1024 / 1024 / 1024).toFixed(2)} GB`
+  }
+
+  formatSpeed(size) {
+    return `${this.formatSize(size)}/s`
+  }
+
+  formatSeconds(seconds) {
+    if (!seconds || seconds === Infinity || seconds === -Infinity || this.props.task.paused) return '- - : - - : - -'
+    let s = parseInt(seconds, 10)
+    let m = 0
+    let h = 0
+    if (s > 60) {
+      m = parseInt(s / 60)
+      s = parseInt(s % 60)
+      if (m > 60) {
+        h = parseInt(m / 60)
+        m = parseInt(m % 60)
+      }
+    }
+    if (h.toString().length === 1) h = `0${h}`
+    if (m.toString().length === 1) m = `0${m}`
+    if (s.toString().length === 1) s = `0${s}`
+    if (h > 24) return '> 24 小时'
+    return `${h} : ${m} : ${s}`
+  }
+
+  renderSizeAndSpeed(task) {
+    const speed = this.props.task.paused ? '' : this.formatSpeed(task.speed)
+    const uploaded = task.count === 1 ? this.formatSize(task.completeSize) : `${task.finishCount}/${task.count}`
+    return (
+      <div style={{ height: 20, width: 160, display: 'flex', alignItems: 'center' }}>
+        <div> { uploaded } </div>
+        <div style={{ flexGrow: 1 }} />
+        <div> { speed } </div>
+      </div>
+    )
+  }
+
+  renderPercent(task) {
     if (task.size === 0) return '0%'
     const percent = (Math.abs(task.completeSize / task.size) * 100).toFixed(2)
-    if (percent > 100) return '传输出错'
     return `${percent}%`
-  }
-
-  getUploadedSize(task) {
-    // console.log(task)
-    if ((task.type === 'folder' || task.type === 'directory') && task.count) {
-      return `${task.finishCount}/${task.count}  ${this.props.task.pause ? '' : task.speed}`
-    } else if (task.type === 'file') {
-      return `${this.formatSize(Math.abs(task.completeSize))}  ${this.props.task.pause ? '' : task.speed}`
-    }
-    return ''
-  }
-
-  formatSize(size) {
-    if (!size) return `${0}KB`
-    size = parseFloat(size)
-    if (size < 1024) return `${size.toFixed(2)}B`
-    else if (size < (1024 * 1024)) return `${(size / 1024).toFixed(2)}KB`
-    else if (size < (1024 * 1024 * 1024)) return `${(size / 1024 / 1024).toFixed(2)}M`
-    return `${(size / 1024 / 1024 / 1024).toFixed(2)}G`
   }
 
   render() {
     console.log('RunningTask', this.props)
     const task = this.props.task
-    const pColor = task.pause ? 'rgba(0,0,0,.12)' : '#89c2f2'
+    const pColor = task.paused ? 'rgba(0,0,0,.12)' : '#89c2f2'
     let pWidth = task.completeSize / task.size * 100
     if (pWidth === Infinity || !pWidth) pWidth = 0
 
@@ -93,26 +134,30 @@ class RunningTask extends React.Component {
 
         {/* task item type */}
         <div style={{ flex: '0 0 32px' }}>
-          { task.type === 'folder' ? <FolderSvg style={svgStyle} /> : <FileSvg style={svgStyle} /> }
+          { task.entries.length > 1 ? <MultiSvg style={svgStyle} />
+          : task.taskType === 'file' ? <FileSvg style={svgStyle} /> : <FolderSvg style={svgStyle} /> }
         </div>
 
         {/* task item name */}
-        <div
-          style={{
-            flexGrow: 1,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap'
-          }}
-        >
-          {task.name}
+        <div style={{ display: 'flex', flexGrow: 1, alignItems: 'center' }} >
+          <div
+            style={{
+              maxWidth: 264,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            { task.name }
+          </div>
+          <div>
+            { task.entries.length > 1 && ` 等${task.entries.length}个项目` }
+          </div>
         </div>
 
-        {/* task restTime */}
-        <div style={{ flex: '0 0 100px' }}>{ task.restTime }</div>
 
         {/* progress bar */}
-        <div style={{ flex: '0 0 240px' }}>
+        <div style={{ flex: '0 0 200px' }}>
           <div
             style={{
               display: 'flex',
@@ -126,21 +171,33 @@ class RunningTask extends React.Component {
             <div style={{ backgroundColor: pColor, width: `${pWidth}%` }} />
           </div>
 
-          {/* UploadedSize */}
-          <div style={{ height: 20, display: 'flex', alignItems: 'center' }}>
-            { this.getUploadedSize(task) }
-          </div>
+          {/* Uploaded size and speed */}
+          { this.renderSizeAndSpeed(task) }
         </div>
 
-        {/* Status */}
-        <div style={{ flex: '0 0 160px' }}>{ this.getStatus(task) }</div>
+        {/* percent */}
+        <div style={{ flex: '0 0 80px' }}>{ this.renderPercent(task) }</div>
 
-        {/* Pause and resume */}
-        <div style={{ flex: '0 0 108px', display: 'flex', alignItems: 'center' }}>
+        {/* task restTime */}
+        <div style={{ flex: '0 0 164px' }}>{ this.formatSeconds(task.restTime) }</div>
+
+        {/* Status */}
+        <div style={{ flex: '0 0 100px' }}>{ this.getStatus(task) }</div>
+
+        {/* Pause, resume and delete task*/}
+        <div style={{ flex: '0 0 120px', display: 'flex', alignItems: 'center' }}>
           {
-            task.pause ?
-              <PlaySvg style={svgStyle} onTouchTap={this.toggleTask} /> :
-              <PauseSvg style={svgStyle} onTouchTap={this.toggleTask} />
+            task.state === 'failed'
+            ? <IconButton iconStyle={{ color: '#F44336 ' }} onTouchTap={this.checkError} tooltip="查看"> <InfoSvg /> </IconButton>
+            : <IconButton iconStyle={svgStyle} onTouchTap={this.toggleTask} tooltip={task.paused ? '开始' : '暂停'}>
+              { task.paused ? <PlaySvg /> : <PauseSvg /> }
+            </IconButton>
+          }
+          {
+            task.paused &&
+              <IconButton iconStyle={svgStyle} onTouchTap={this.props.delete} tooltip="取消">
+                <DeleteSvg />
+              </IconButton>
           }
         </div>
       </div>

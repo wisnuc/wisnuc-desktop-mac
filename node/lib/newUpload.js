@@ -1,74 +1,152 @@
-import path from 'path'
 import fs from 'fs'
+import path from 'path'
 import UUID from 'uuid'
 import Debug from 'debug'
 import { dialog, ipcMain } from 'electron'
 import { getMainWindow } from './window'
-import createTask, { sendMsg } from './uploadTaskCreater'
-// import { sendMsg } from './uploadTaskCreater'
-// import { createTask } from './TestCode/applyTransform'
+import { createTask } from './uploadTransform'
 import { serverGetAsync } from './server'
 
 Promise.promisifyAll(fs) // babel would transform Promise to bluebird
 
 const debug = Debug('node:lib:newUpload: ')
-const userTasks = []
-const finishTasks = []
+
+/*
+policy: { uuid, promise }
+*/
+
+const Policies = []
+
+const choosePolicy = (conflicts) => {
+  const session = UUID.v4()
+  const promise = new Promise((resolve, reject) => {
+    Policies.push({ session, resolve: value => resolve(value), reject: error => reject(error) })
+    getMainWindow().webContents.send('conflicts', { session, conflicts })
+  })
+  return promise
+}
+
+const resolveHandle = (event, args) => {
+  const index = Policies.findIndex(p => p.session === args.session)
+  if (index < 0) throw Error('no such session !')
+  if (args.response) return Policies[index].resolve(args.response)
+  return Policies[index].reject(Error('cancel'))
+}
 
 const readUploadInfoAsync = async (entries, dirUUID, driveUUID) => {
-  let count = 0
+  /* remove unsupport files */
+  let taskType = ''
+  const filtered = []
+  const nameSpace = []
+  for (let i = 0; i < entries.length; i++) {
+    const entry = entries[i]
+    const name = entry.replace(/^.*\//, '')
+    nameSpace.push(name)
+    const stat = await fs.lstatAsync(path.resolve(entry))
+    const entryType = stat.isDirectory() ? 'directory' : stat.isFile() ? 'file' : 'others'
+    /* only upload directory or file, ignore others, such as symbolic link */
+    if (entryType !== 'others') {
+      if (!taskType) taskType = entryType
+      filtered.push({ entry, name, stat, entryType })
+    }
+  }
+
   const listNav = await serverGetAsync(`drives/${driveUUID}/dirs/${dirUUID}`)
   const remoteEntries = listNav.entries
-  let overWrite = false
-  for (let i = 0; i < entries.length; i++) {
-    const entry = entries[i]
-    const fileName = entry.replace(/^.*\//, '')
-    const index = remoteEntries.findIndex(e => (e.name === fileName))
+  nameSpace.push(...remoteEntries.map(e => e.name))
+  const conflicts = []
+  for (let i = 0; i < filtered.length; i++) {
+    const { entry, entryType, name, stat } = filtered[i]
+    const index = remoteEntries.findIndex(e => (e.name === name))
     if (index > -1) {
-      debug('find name conflict', entry)
-      const response = dialog.showMessageBox(getMainWindow(), {
-        type: 'warning',
-        title: '文件名冲突',
-        buttons: ['取消', '单独保存'], // ['取消', '单独保存', '覆盖']
-        message: `上传内容中${fileName}等文件与此文件夹中的现有文件存在命名冲突。\n是否覆盖已有文件？`
-      })
-      if (!response) throw new Error('cancel')
-      if (response === 2) overWrite = true
-      break
+      let checkedName = name
+      const extension = name.replace(/^.*\./, '')
+      for (let j = 1; nameSpace.includes(checkedName); j++) {
+        if (!extension || extension === name) {
+          checkedName = `${name}(${j})`
+        } else {
+          const pureName = name.match(/^.*\./)[0]
+          checkedName = `${pureName.slice(0, pureName.length - 1)}(${j}).${extension}`
+        }
+      }
+      debug('conflicts find', name)
+      conflicts.push({ entry, entryType, name, checkedName, stat, remote: remoteEntries[index] })
     }
   }
 
-  debug('check name, overWrite ?', overWrite)
+  /*  sort conflicts by order of following:
+   *
+   *  directory => directory: 1
+   *  directory => file: 2
+   *  file => directory: 3
+   *  file => file: 4
+   *
+   */
+  const typeCheck = (c) => {
+    if (c.entryType === 'directory' && c.remote.type === 'directory') return 1
+    if (c.entryType === 'directory' && c.remote.type === 'file') return 2
+    if (c.entryType === 'file' && c.remote.type === 'directory') return 3
+    if (c.entryType === 'file' && c.remote.type === 'file') return 4
+    return 5 // error ?
+  }
+  conflicts.forEach(c => (c.type = typeCheck(c)))
+  conflicts.sort((a, b) => (a.type - b.type))
 
-  for (let i = 0; i < entries.length; i++) {
+  // conflicts.length = 0
+
+  /* wait user to choose policy
+   *
+   * cancel: cancel all uploading
+   * skip: skip specific entry
+   * rename: need a checkedName
+   * replace: need remote target's uuid
+   * merge: using mkdirp when create directory
+   *
+   */
+  if (conflicts.length) {
+    const response = await choosePolicy(conflicts)
+    conflicts.forEach((c, i) => {
+      const res = response[i]
+      const index = filtered.findIndex(f => (f.entry === c.entry))
+      if (res === 'skip') {
+        filtered.splice(index, 1)
+      } else {
+        filtered[index].policy = res
+        filtered[index].remoteUUID = c.remote.uuid
+        filtered[index].checkedName = c.checkedName
+      }
+    })
+  }
+
+  /* createTask */
+  if (filtered.length) {
+    const policies = []
+    const newEntries = filtered.map((f, i) => {
+      const mode = f.policy ? f.policy : 'normal'
+      const checkedName = mode === 'rename' ? f.checkedName : undefined
+      policies[i] = { mode, checkedName, remoteUUID: f.remoteUUID }
+      return f.entry
+    })
     const taskUUID = UUID.v4()
-    const entry = entries[i]
-    const entryStat = await fs.lstatAsync(path.resolve(entry))
-    const taskType = entryStat.isDirectory() ? 'folder' : entryStat.isFile() ? 'file' : 'others'
     const createTime = (new Date()).getTime()
     const newWork = true
-    const uploadingList = []
-    const rootNodeUUID = null
-    /* only upload folder or file, ignore others, such as symbolic link */
-    if (taskType !== 'others') {
-      createTask(taskUUID, entry, dirUUID, driveUUID, taskType, createTime, newWork, uploadingList, rootNodeUUID)
-      count += 1
-    }
+    // debug('conflicts response', newEntries, policies)
+    createTask(taskUUID, newEntries, dirUUID, driveUUID, taskType, createTime, newWork, policies)
   }
-  return count
+  return filtered.length
 }
 
 const readUploadInfo = (entries, dirUUID, driveUUID) => {
   readUploadInfoAsync(entries, dirUUID, driveUUID)
     .then((count) => {
-      let message = `${count}个任务添加至上传队列`
-      if (count < entries.length) message = `${message} (忽略了${entries.length - count}个不支持的文件)`
+      let message = `${count}个项目添加至上传队列`
+      if (count < entries.length) message = `${message} (忽略了${entries.length - count}个跳过或不支持的文件)`
       getMainWindow().webContents.send('snackbarMessage', { message })
     })
     .catch((e) => {
-      debug('readUploadInfo error: ', e.code)
+      debug('readUploadInfo error: ', e)
       if (e.code === 'ECONNREFUSED') {
-        getMainWindow().webContents.send('snackbarMessage', { message: '与wisnuc的连接已断开' })
+        getMainWindow().webContents.send('snackbarMessage', { message: '与设备的连接已断开' })
       } else if (e.message !== 'cancel') {
         getMainWindow().webContents.send('snackbarMessage', { message: '读取上传文件失败' })
       }
@@ -78,17 +156,16 @@ const readUploadInfo = (entries, dirUUID, driveUUID) => {
 /* handler */
 const uploadHandle = (event, args) => {
   const { driveUUID, dirUUID, type, filters } = args
-  const dialogType = type === 'folder' ? 'openDirectory' : 'openFile'
+  const dialogType = type === 'directory' ? 'openDirectory' : 'openFile'
   dialog.showOpenDialog(getMainWindow(), { properties: [dialogType, 'multiSelections'], filters }, (entries) => {
-    if (!entries || !entries.length) return debug('no entry !')
-    // readDir.push({ entries, dirUUID, driveUUID })
+    if (!entries || !entries.length) return
     readUploadInfo(entries, dirUUID, driveUUID)
   })
 }
 
 const dragFileHandle = (event, args) => {
   let entries = args.files
-  if (!entries || !entries.length) return debug('no entry !')
+  if (!entries || !entries.length) return
   entries = entries.map(entry => path.normalize(entry))
   readUploadInfo(entries, args.dirUUID, args.driveUUID)
 }
@@ -106,79 +183,18 @@ const uploadMediaHandle = (event, args) => {
   })
 }
 
-const startTransmissionHandle = () => {
-  db.uploaded.find({}).sort({ finishDate: -1 }).exec((err, docs) => {
-    if (err) return console.log(err)
-    docs.forEach(item => item.uuid = item._id)
-    finishTasks.splice(0, 0, ...docs)
-    sendMsg()
-  })
-
-  db.uploading.find({}, (err, tasks) => {
-    if (err) return
-    tasks.forEach((item) => {
-      createTask(item._id, item.abspath, item.target, item.driveUUID, item.type, item.createTime, false, item.uploading, item.rootNodeUUID)
-    })
-  })
-}
-
-const deleteUploadingHandle = (e, tasks) => {
-  tasks.forEach((item) => {
-    const obj = userTasks.find(task => task.uuid === item.uuid)
-    if (obj) obj.delete(cleanRecord)
-  })
-}
-
-const deleteUploadedHandle = (e, tasks) => {
-  tasks.forEach((item) => {
-    const obj = finishTasks.find(task => task.uuid === item.uuid)
-    if (obj) cleanRecord('finish', item.uuid)
-  })
-}
-
-const cleanRecord = (type, uuid) => {
-  const list = type === 'finish' ? finishTasks : userTasks
-  const d = type === 'finish' ? db.uploaded : db.uploading
-  const index = list.findIndex(item => item.uuid === uuid)
-  if (index === -1) return console.log('任务没有在任务列表中')
-
-  console.log(`删除列表中任务... 第${index + 1}个 共${list.length}个`)
-  list.splice(index, 1)
-  console.log(`列表中任务删除完成 剩余${list.length}个`)
-  d.remove({ _id: uuid }, {}, (err, doc) => {
-    if (err) return console.log('删除数据库记录出错')
-    console.log('删除数据库记录成功')
-    sendMsg()
+const startTransmissionHandle = (event, args) => {
+  global.db.task.find({}, (error, tasks) => {
+    if (error) return debug('load nedb store error', error)
+    tasks.forEach(t => t.state !== 'finished' && t.trsType === 'upload' &&
+      createTask(t.uuid, t.entries, t.dirUUID, t.driveUUID, t.taskType, t.createTime, false, t.policies, t)
+    )
   })
 }
 
 /* ipc listener */
-ipcMain.on('START_TRANSMISSION', startTransmissionHandle)
-ipcMain.on('GET_TRANSMISSION', sendMsg)
-ipcMain.on('DELETE_UPLOADING', deleteUploadingHandle)
-ipcMain.on('DELETE_UPLOADED', deleteUploadedHandle)
-ipcMain.on('DRAG_FILE', dragFileHandle)
 ipcMain.on('UPLOAD', uploadHandle)
 ipcMain.on('UPLOADMEDIA', uploadMediaHandle)
-
-ipcMain.on('PAUSE_UPLOADING', (e, uuid) => {
-  if (!uuid) return
-  const task = userTasks.find(item => item.uuid === uuid)
-  if (task) { task.pauseTask() }
-})
-
-ipcMain.on('RESUME_UPLOADING', (e, uuid) => {
-  if (!uuid) return
-  const task = userTasks.find(item => item.uuid === uuid)
-  if (task) task.resumeTask()
-})
-
-ipcMain.on('LOGIN_OUT', (e) => {
-  console.log('LOGIN_OUT in upload')
-  userTasks.forEach(item => item.pauseTask())
-  userTasks.length = 0
-  finishTasks.length = 0
-  sendMsg()
-})
-
-export { userTasks, finishTasks }
+ipcMain.on('DRAG_FILE', dragFileHandle)
+ipcMain.on('resolveConflicts', resolveHandle)
+ipcMain.on('START_TRANSMISSION', startTransmissionHandle)

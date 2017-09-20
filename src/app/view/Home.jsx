@@ -5,6 +5,7 @@ import { IconButton, Divider } from 'material-ui'
 import FileFolder from 'material-ui/svg-icons/file/folder'
 import FileCreateNewFolder from 'material-ui/svg-icons/file/create-new-folder'
 import NavigationMenu from 'material-ui/svg-icons/navigation/menu'
+import RefreshIcon from 'material-ui/svg-icons/navigation/refresh'
 import ListIcon from 'material-ui/svg-icons/action/list'
 import GridIcon from 'material-ui/svg-icons/action/view-module'
 import DownloadIcon from 'material-ui/svg-icons/file/file-download'
@@ -57,7 +58,8 @@ class Home extends Base {
       delete: false,
       move: false,
       copy: false,
-      share: false
+      share: false,
+      loading: false
     }
 
     /* handle update sortType */
@@ -84,19 +86,10 @@ class Home extends Base {
 
     this.download = () => {
       if (!window.navigator.onLine) return this.ctx.openSnackBar('网络连接已断开，请检查网络设置')
-      const entries = this.state.entries
       const selected = this.state.select.selected
+      const entries = selected.map(index => this.state.entries[index])
       const path = this.state.path
-      const folders = []
-      const files = []
-
-      selected.forEach((item) => {
-        const obj = entries[item]
-        if (obj.type === 'directory') folders.push(obj)
-        else if (obj.type === 'file') files.push(obj)
-      })
-
-      ipcRenderer.send('DOWNLOAD', { folders, files, dirUUID: path[path.length - 1].uuid, driveUUID: path[0].uuid })
+      ipcRenderer.send('DOWNLOAD', { entries, dirUUID: path[path.length - 1].uuid, driveUUID: path[0].uuid })
     }
 
     this.dupFile = () => {
@@ -156,7 +149,7 @@ class Home extends Base {
 
     this.delete = () => {
       if (!window.navigator.onLine) return this.ctx.openSnackBar('网络连接已断开，请检查网络设置')
-      this.setState({ loading: true })
+      // this.setState({ loading: true })
       this.deleteAsync().then(() => {
         this.setState({ loading: false, delete: false })
         this.ctx.openSnackBar('删除成功')
@@ -182,11 +175,15 @@ class Home extends Base {
       }
     }
 
+    /* op: scrollTo file */
     this.refresh = (op) => {
+      if (!window.navigator.onLine) return this.ctx.openSnackBar('网络连接已断开，请检查网络设置')
       const rUUID = this.state.path[0].uuid
       const dUUID = this.state.path[this.state.path.length - 1].uuid
       this.ctx.props.apis.request('listNavDir', { driveUUID: rUUID, dirUUID: dUUID })
-      if (op && op.fileName) this.setState({ scrollTo: op.fileName })
+      debug('this.refresh op', op)
+      if (op) this.setState({ scrollTo: op.fileName, loading: !op.noloading })
+      else this.setState({ loading: true })
     }
 
     this.showContextMenu = (clientX, clientY) => {
@@ -230,13 +227,10 @@ class Home extends Base {
       }
     }
 
-    ipcRenderer.on('driveListUpdate', (e, obj) => {
-      console.log(obj, this.state.path)
-      if (!this.state.path || !this.state.path.length) return
-      if (obj.uuid === this.state.path[this.state.path.length - 1].uuid) {
-        // this.ctx.openSnackBar(obj.message)
-        this.refresh()
-      }
+    ipcRenderer.on('driveListUpdate', (e, dir) => {
+      const path = this.state.path
+      // console.log(dir, path)
+      if (path && path.length && dir.uuid === path[path.length - 1].uuid) this.refresh({ noloading: true })
     })
   }
 
@@ -249,7 +243,7 @@ class Home extends Base {
     entries = [...entries].sort((a, b) => sortByType(a, b, this.state.sortType))
 
     const select = this.select.reset(entries.length)
-    const state = { select, listNavDir, path, entries }
+    const state = { select, listNavDir, path, entries, loading: false }
 
     this.force = false
     this.setState(state)
@@ -263,13 +257,25 @@ class Home extends Base {
     this.updateState(listNavDir.value())
   }
 
-  navEnter() {
+  navEnter(target) {
     const apis = this.ctx.props.apis
+    debug('navEnter before', apis, target)
     if (!apis || !apis.drives || !apis.drives.data) return
-    const homeDrive = apis.drives.data.find(drive => drive.tag === 'home')
-    const preDriveUUID = apis.listNavDir && apis.listNavDir.data && apis.listNavDir.data.path[0].uuid
-    if (homeDrive && preDriveUUID !== homeDrive.uuid) {
-      this.ctx.props.apis.request('listNavDir', { driveUUID: homeDrive.uuid, dirUUID: homeDrive.uuid })
+    if (target && target.driveUUID) {
+      const { driveUUID, dirUUID } = target
+      debug('navEnter', driveUUID, dirUUID)
+      apis.request('listNavDir', { driveUUID, dirUUID }, (err) => {
+        if (!err) return
+        this.ctx.openSnackBar('打开目录失败')
+        this.refresh()
+      })
+      this.setState({ loading: true })
+    } else {
+      const homeDrive = apis.drives.data.find(drive => drive.tag === 'home')
+      const preDriveUUID = apis.listNavDir && apis.listNavDir.data && apis.listNavDir.data.path[0].uuid
+      if (homeDrive && preDriveUUID !== homeDrive.uuid) {
+        apis.request('listNavDir', { driveUUID: homeDrive.uuid, dirUUID: homeDrive.uuid })
+      }
     }
   }
 
@@ -358,6 +364,9 @@ class Home extends Base {
   renderToolBar({ style }) {
     return (
       <div style={style}>
+        <IconButton onTouchTap={() => this.refresh()} tooltip="刷新" >
+          <RefreshIcon color="#FFF" />
+        </IconButton>
         <IconButton onTouchTap={() => this.toggleDialog('gridView')} tooltip={this.state.gridView ? '列表视图' : '网格视图'}>
           { this.state.gridView ? <ListIcon color="#FFF" /> : <GridIcon color="#FFF" /> }
         </IconButton>
@@ -517,7 +526,7 @@ class Home extends Base {
                 <MenuItem
                   primaryText="上传文件夹"
                   leftIcon={<UploadFold style={{ height: 20, width: 20, marginTop: 6 }} />}
-                  onTouchTap={() => this.upload('folder')}
+                  onTouchTap={() => this.upload('directory')}
                 />
                 <MenuItem
                   primaryText="上传文件"
@@ -600,6 +609,8 @@ class Home extends Base {
           changeSortType={this.changeSortType}
           gridView={this.state.gridView}
           scrollTo={this.state.scrollTo}
+          openSnackBar={openSnackBar}
+          toggleDialog={this.toggleDialog}
         />
 
         { this.renderMenu(this.state.contextMenuOpen, toggleDetail, getDetailStatus) }
