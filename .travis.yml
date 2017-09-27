@@ -12,7 +12,7 @@ before_install:
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew update; fi
 
 install:
-  - npm install
+  - npm install --registry=https://skimdb.npmjs.com/registry
   - ./node_modules/.bin/webpack -p
   - npm run build
 
