@@ -24,6 +24,8 @@ ipcMain.on('LOGIN', (event, device, user) => {
   debug('Got device, address, token, stationID: ', address, stationID)
 })
 
+export const isCloud = () => !!stationID
+
 const reqCloud = (ep, data, type) => {
   const url = `${address}/c/v1/stations/${stationID}/json`
   const url2 = `${address}/c/v1/stations/${stationID}/pipe`
@@ -46,6 +48,15 @@ const adownload = (ep) => {
   return request
     .get(`http://${address}:3000/${ep}`)
     .set('Authorization', `JWT ${token}`)
+}
+
+const awriteDir = (ep, data, type) => {
+  const url = `${address}/c/v1/stations/${stationID}/json`
+  const resource = new Buffer(`/${ep}`).toString('base64')
+  if (type === 'mkdir') return request.post(url).set('Authorization', token)
+    .send({ resource, method: 'POST', toName: data.name, op: 'mkdir' })
+  if (type === 'remove') return request.post(url).set('Authorization', token)
+    .send({ resource, method: 'POST', toName: data.name, uuid: data.uuid, op: 'remove' })
 }
 
 const apost = (ep, data) => {
@@ -107,7 +118,7 @@ export class UploadMultipleFiles {
     this.handle = null
   }
 
-  upload() {
+  localUpload() {
     this.handle = apost(`drives/${this.driveUUID}/dirs/${this.dirUUID}/entries`)
     
     this.Files.forEach((file) => {
@@ -123,7 +134,7 @@ export class UploadMultipleFiles {
           if (part.start) {
             formDataOptions = Object.assign(formDataOptions, { append: part.fingerprint })
           } else if (policy && policy.mode === 'replace') {
-            this.handle.attach(name, JSON.stringify({ op: 'remove', uuid: policy.remoteUUID }))
+            this.handle.field(name, JSON.stringify({ op: 'remove', uuid: policy.remoteUUID }))
           }
           this.handle.attach(name, rs, JSON.stringify(formDataOptions))
         } catch (e) {
@@ -141,6 +152,49 @@ export class UploadMultipleFiles {
       else if (res && res.statusCode === 200) this.finish(null)
       else this.finish(res.body)
     })
+  }
+
+  cloudUpload() {
+    const ep = `drives/${this.driveUUID}/dirs/${this.dirUUID}/entries`
+    const file = this.Files[0]
+    
+    const { name, parts, readStreams, policy } = file
+    const rs = readStreams[0]
+    const part = parts[0]
+
+    const url = `${address}/c/v1/stations/${stationID}/pipe`
+    const resource = new Buffer(`/${ep}`).toString('base64')
+
+    const option = {
+      op: 'newfile',
+      resource,
+      method: 'POST',
+      toName: name,
+      size: part.end ? part.end - part.start + 1 : 0,
+      sha256: part.sha
+    }
+    this.handle = request.post(url).set('Authorization', token).field('manifest', JSON.stringify(option)).attach(name, rs)
+    /*
+    if (policy && policy.mode === 'replace') {
+      this.handle.field(name, JSON.stringify({ op: 'remove', uuid: policy.remoteUUID }))
+    }
+    */
+    
+    this.handle.on('error', (err) => {
+      debug('this.handle.on error', err)
+      this.finish(err)
+    })
+
+    this.handle.end((err, res) => {
+      if (err) this.finish(err)
+      else if (res && res.statusCode === 200) this.finish(null)
+      else this.finish(res.body)
+    })
+  }
+
+  upload() {
+    if (stationID) this.cloudUpload()
+    else this.localUpload()
   }
 
   finish(error) {
@@ -251,26 +305,32 @@ createFold
 
 export const createFold = (driveUUID, dirUUID, dirname, localEntries, policy, callback) => {
   const parents = true // mkdirp
-
-  const handle = apost(`drives/${driveUUID}/dirs/${dirUUID}/entries`)
-
-  if (policy && policy.mode === 'replace') handle.field(dirname, JSON.stringify({ op: 'remove', uuid: policy.remoteUUID }))
-  handle.field(dirname, JSON.stringify({ op: 'mkdir', parents }))
-
+  const ep = `drives/${driveUUID}/dirs/${dirUUID}/entries`
+  let handle = null
+  if (stationID) {
+    const url = `${address}/c/v1/stations/${stationID}/json`
+    const resource = new Buffer(`/${ep}`).toString('base64')
+    handle = request.post(url).set('Authorization', token).send(Object.assign({ resource, method: 'POST', op: 'mkdir', toName: dirname }))
+  } else {
+    handle = apost(ep)
+    if (policy && policy.mode === 'replace') handle.field(dirname, JSON.stringify({ op: 'remove', uuid: policy.remoteUUID }))
+    handle.field(dirname, JSON.stringify({ op: 'mkdir', parents }))
+  }
+ 
   handle.end((error, res) => {
     if (error) {
       debug('createFold error', error.response && error.response.body)
       callback(Object.assign({}, error, { response: null }))
     } else if (res && res.statusCode === 200) {
       /* callback the created dir entry */
-      // debug('createFold', res.body)
-      callback(null, res.body[0].data)
+      debug('createFold', res.body)
+      callback(null, stationID ? res.body.data : res.body[0].data)
       // callback(null, res.body.entries.find(e => e.name === dirname))
     } else if (res && res.statusCode === 403 && (policy.mode === 'overwrite' || policy.mode === 'merge')) {
       /* when a file with the same name in remote, retry if given policy of overwrite or merge */
       serverGetAsync(`drives/${driveUUID}/dirs/${dirUUID}`)
         .then((listNav) => {
-          const entries = listNav.entries
+          const entries = stationID ? listNav.data.entries : listNav.entries
           const index = entries.findIndex(e => e.name === dirname)
           if (index > -1) {
             const nameSpace = [...entries.map(e => e.name), localEntries.map(e => path.parse(e).base)]

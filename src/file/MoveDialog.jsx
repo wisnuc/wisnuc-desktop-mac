@@ -175,7 +175,7 @@ class MoveDialog extends React.PureComponent {
           // this.setState({ errorText: err.message })
           this.setState({ errorText: '出现错误，请重试！' })
         } else {
-          const node = data.entries.find(entry => entry.name === this.state.newFoldName)
+          const node = data.find(entry => entry.name === this.state.newFoldName).data
           this.enter(node)
           this.props.refresh()
           this.setState({ cnf: false, newFoldName: '', errorText: '' })
@@ -233,6 +233,7 @@ class MoveDialog extends React.PureComponent {
       if (error) {
         this.setState({ loading: false })
         this.closeDialog()
+        this.props.refresh()
         this.props.openSnackBar('失败')
         return
       }
@@ -240,19 +241,22 @@ class MoveDialog extends React.PureComponent {
         if (err) {
           this.setState({ loading: false })
           this.closeDialog()
+          this.props.refresh()
           return this.props.openSnackBar('失败')
         }
         this.setState({ loading: false })
         this.closeDialog()
+        this.props.refresh()
         return this.props.openSnackBar('成功')
       })
     }
 
     /* request task state */
     this.getTaskState = async (uuid) => {
-      // const data = await this.agetAsync(`tasks/${uuid}`)
       const list = await this.agetAsync('tasks')
       const data = list.find(l => l.uuid === uuid)
+      // const data = await this.agetAsync(`tasks/${uuid}`)
+      console.log('this.getTaskState', data)
       if (!data.isStopped) {
         console.log('retry', data)
         await this.sleep(200)
