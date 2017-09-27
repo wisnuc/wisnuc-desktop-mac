@@ -1,85 +1,264 @@
+import Debug from 'debug'
+import request from 'request'
 import fs from 'fs'
 import path from 'path'
-import Debug from 'debug'
+import util from 'util'
+import crypto from 'crypto'
 import UUID from 'node-uuid'
-import request from 'superagent'
-import { ipcMain } from 'electron'
-import store from './store'
+import store from '../serve/store/store'
 
 Promise.promisifyAll(fs) // babel would transform Promise to bluebird
 
 const debug = Debug('node:lib:server')
+const getIpAddr = () => store.getState().login.device.mdev.address
+const getToken = () => store.getState().login.device.token.data.token
 const getTmpPath = () => store.getState().config.tmpPath
 const getTmpTransPath = () => store.getState().config.tmpTransPath
 
-/* init request */
-let stationID = null
-let address = null
-let token = null
+// TODO token can also be auth, or not provided
+const requestGet = (url, qs, token, callback) => {
+  // auth-less
+  if (typeof token === 'function') {
+    callback = token
+    token = null
+  }
 
-ipcMain.on('LOGIN', (event, device, user) => {
-  address = device.mdev.address
-  token = device.token.data.token
-  stationID = device.token.data.stationID
-  debug('Got device, address, token, stationID: ', address, stationID)
-})
+  const opts = { method: 'GET', url }
+  if (qs) opts.qs = qs
+  if (typeof token === 'string') { opts.headers = { Authorization: `JWT ${token}` } } else if (typeof token === 'object' && token !== null) {
+    opts.auth = token
+  }
 
-const reqCloud = (ep, data, type) => {
-  const url = `${address}/c/v1/stations/${stationID}/json`
-  const url2 = `${address}/c/v1/stations/${stationID}/pipe`
-  const resource = new Buffer(`/${ep}`).toString('base64')
-  debug('reqCloud', type, ep)
-  if (type === 'GET') return request.get(url).set('Authorization', token).query({ resource, method: type })
-  if (type === 'DOWNLOAD') return request.get(url2).set('Authorization', token).query({ resource, method: 'GET' })
-  return request.post(url).set('Authorization', token).send(Object.assign({ resource, method: type }, data))
+  // debug('requestGet, opts', opts)
+
+  request.get(opts, (err, res) => {
+    if (err) return callback(err)
+    if (res.statusCode !== 200) {
+      const e = new Error('http status code not 200')
+      e.code = 'EHTTPSTATUS'
+      e.status = res.statusCode
+      e.url = url
+      return callback(e)
+    }
+
+    try {
+      const obj = JSON.parse(res.body)
+      return callback(null, obj)
+    } catch (e) {
+      console.log('req GET json parse err')
+      console.log(e)
+      const e1 = new Error('json parse error')
+      e1.code === 'EJSONPARSE'
+      return callback(e1)
+    }
+  })
 }
 
-const aget = (ep) => {
-  if (stationID) return reqCloud(ep, null, 'GET')
-  return request
-    .get(`http://${address}:3000/${ep}`)
-    .set('Authorization', `JWT ${token}`)
-}
+export const requestGetAsync = Promise.promisify(requestGet)
 
-const adownload = (ep) => {
-  if (stationID) return reqCloud(ep, null, 'DOWNLOAD')
-  return request
-    .get(`http://${address}:3000/${ep}`)
-    .set('Authorization', `JWT ${token}`)
-}
+const requestDownload = (url, qs, token, downloadPath, name, callback) => {
+  const opts = { method: 'GET', url }
+  if (qs) opts.qs = qs
+  if (typeof token === 'string') { opts.headers = { Authorization: `JWT ${token}` } } else if (typeof token === 'object' && token !== null) {
+    opts.auth = token
+  }
 
-const apost = (ep, data) => {
-  if (stationID) return reqCloud(ep, data, 'POST')
-  const r = request
-    .post(`http://${address}:3000/${ep}`)
-    .set('Authorization', `JWT ${token}`)
+  const tmpPath = path.join(getTmpPath(), UUID.v4())
+  const dst = path.join(downloadPath, name)
 
-  return typeof data === 'object'
-    ? r.send(data)
-    : r
-}
-
-/**
-get json data from server
-@param {string} endpoint
-@param {function} callback
-*/
-
-export const serverGet = (endpoint, callback) => {
-  aget(endpoint).end((err, res) => {
-    if (err) return callback(Object.assign({}, err, { response: null }))
-    if (res.statusCode !== 200 && res.statusCode !== 206) {
+  const stream = fs.createWriteStream(tmpPath)
+  request(opts, (err, res) => {
+    if (err) return callback(err)
+    if (res.statusCode !== 200) {
+      console.log(res.body)
       const e = new Error('http status code not 200')
       e.code = 'EHTTPSTATUS'
       e.status = res.statusCode
       return callback(e)
     }
-    const data = res.body
-    return callback(null, data)
+
+    try {
+      fs.renameSync(tmpPath, dst)
+      return callback(null, null)
+    } catch (e) {
+      console.log('req GET json parse err')
+      console.log(e)
+      const e1 = new Error('json parse error')
+      e1.code === 'EJSONPARSE'
+      return callback(e1)
+    }
+  }).pipe(stream)
+}
+
+export const requestDownloadAsync = Promise.promisify(requestDownload)
+
+const requestPost = (url, token, body, callback) => {
+  const opts = { method: 'POST', url, body: JSON.stringify(body) }
+  opts.headers = {
+    Authorization: `JWT ${token}`,
+    'Content-Type': 'application/json'
+  }
+
+  // debug('requestPost', opts)
+  request(opts, (err, res) => {
+    if (err) return callback(err)
+    if (res.statusCode !== 200) {
+      const e = new Error('http status code not 200')
+      e.code = 'EHTTPSTATUS'
+      e.status = res.statusCode
+      return callback(e)
+    }
+    callback(null, res.body)
   })
 }
 
-export const serverGetAsync = Promise.promisify(serverGet)
+const requestPostAsync = Promise.promisify(requestPost)
+
+const requestPatch = (url, token, body, callback) => {
+  const opts = { method: 'PATCH', url, body: JSON.stringify(body) }
+  opts.headers = {
+    Authorization: `JWT ${token}`,
+    'Content-Type': 'application/json'
+  }
+
+  // debug('requestPatch', opts)
+
+  request(opts, (err, res) => {
+    if (err) return callback(err)
+    if (res.statusCode !== 200) {
+      const e = new Error('http status code node 200')
+      e.code = 'EHTTPSTATUS'
+      e.status = res.statusCode
+      return callback(e)
+    }
+    callback(null, res.body)
+  })
+}
+
+const requestPatchAsync = Promise.promisify(requestPatch)
+
+const requestDelete = (url, token, callback) => {
+  const opts = { method: 'DELETE', url }
+  opts.headers = { Authorization: `JWT ${token}` }
+
+  // debug('requestDelete, opts', opts)
+
+  request(opts, (err, res) => {
+    if (err) return callback(err)
+    if (res.statusCode !== 200) {
+      console.log('a delete error ~~~~~~~~~~~~')
+      const e = new Error('http status code not 200')
+      e.code = 'EHTTPSTATUS'
+      e.status = res.statusCode
+      return callback(e)
+    }
+    console.log('a delete finish ~~~~~~~~~~~~')
+    callback(null)
+  })
+}
+
+const requestDeleteAsync = Promise.promisify(requestDelete)
+
+export const retrieveUsers = async (token) => {
+  const ip = getIpAddr()
+  const port = 3000
+
+  return requestGetAsync(`http://${ip}:${port}/users`, null, token)
+}
+
+export const serverGetAsync = async (endpoint, qs) => {
+  // debug('serverGetAsync', endpoint, qs)
+
+  const ip = getIpAddr()
+  const port = 3000
+  const token = getToken()
+  return requestGetAsync(`http://${ip}:${port}/${endpoint}`, qs, token)
+}
+
+export const serverDeleteAsync = async (endpoint) => {
+  const ip = getIpAddr()
+  const port = 3000
+  const token = getToken()
+  return requestDeleteAsync(`http://${ip}:${port}/${endpoint}`, token)
+}
+
+export const serverPostAsync = async (endpoint, body) => {
+  const ip = getIpAddr()
+  const port = 3000
+  const token = getToken()
+  return requestPostAsync(`http://${ip}:${port}/${endpoint}`, token, body)
+}
+
+export const serverPatchAsync = async (endpoint, body) => {
+  const ip = getIpAddr()
+  const port = 3000
+  const token = getToken()
+  return requestPatchAsync(`http://${ip}:${port}/${endpoint}`, token, body)
+}
+
+export const serverDownloadAsync = (endpoint, qs, downloadPath, name) => {
+  const ip = getIpAddr()
+  const port = 3000
+  const token = getToken()
+  return requestDownloadAsync(`http://${ip}:${port}/${endpoint}`, qs, token, downloadPath, name)
+}
+
+
+/** *********************************************************
+new api TODO
+ ***********************************************************/
+
+/* init request */
+let server
+let tokenObj
+let Authorization
+const initArgs = () => {
+  server = `http://${store.getState().login.device.mdev.address}:3000`
+  tokenObj = store.getState().login.device.token.data
+  Authorization = `${tokenObj.type} ${tokenObj.token}`
+}
+
+/**
+Upload a single file using request formData
+
+@param {string} driveUUID
+@param {string} dirUUID
+@param {string} name
+@param {object} part
+@param {string} part.start
+@param {string} part.end
+@param {string} part.sha
+@param {string} part.fingerpringt
+@param {object} readStream
+@param {function} callback
+*/
+
+export const uploadFileWithStream = (driveUUID, dirUUID, name, part, readStream, callback) => {
+  initArgs()
+  let formDataOptions = {
+    size: part.end ? part.end - part.start + 1 : 0,
+    sha256: part.sha
+  }
+  if (part.start) formDataOptions = Object.assign(formDataOptions, { append: part.fingerprint })
+
+  const op = {
+    url: `${server}/drives/${driveUUID}/dirs/${dirUUID}/entries`,
+    headers: { Authorization },
+    formData: {
+      [name]: {
+        value: readStream,
+        options: JSON.stringify(formDataOptions)
+      }
+    }
+  }
+  request.post(op, (error, data) => {
+    if (error) {
+      console.log('error', error)
+    } else if (callback) callback()
+  })
+}
+
+export const uploadFileWithStreamAsync = Promise.promisify(uploadFileWithStream)
 
 /**
 Upload multiple files in one request.post
@@ -88,13 +267,8 @@ Upload multiple files in one request.post
 @param {string} dirUUID
 @param {Object[]} Files
 @param {string} Files[].name
-@param {Object[]} Files[].parts
-@param {string} Files[].parts[].start
-@param {string} Files[].parts[].end
-@param {string} Files[].parts[].sha
-@param {string} Files[].parts[].fingerpringt
-@param {Object[]} Files[].readStreams
-@param {Object} Files[].policy
+@param {Object} Files[].parts
+@param {Object} Files[].readStream
 @param {function} callback
 */
 
@@ -108,8 +282,18 @@ export class UploadMultipleFiles {
   }
 
   upload() {
-    this.handle = apost(`drives/${this.driveUUID}/dirs/${this.dirUUID}/entries`)
-    
+    initArgs()
+
+    const op = { url: `${server}/drives/${this.driveUUID}/dirs/${this.dirUUID}/entries`, headers: { Authorization } }
+
+    this.handle = request.post(op, (err, res) => {
+      if (err) this.finish(err)
+      else if (res && res.statusCode === 200) this.finish(null)
+      else this.finish(JSON.parse(res.body))
+    })
+
+    const form = this.handle.form()
+
     this.Files.forEach((file) => {
       const { name, parts, readStreams, policy } = file
       for (let i = 0; i < parts.length; i++) {
@@ -119,37 +303,19 @@ export class UploadMultipleFiles {
           size: part.end ? part.end - part.start + 1 : 0,
           sha256: part.sha
         }
-        try {
-          if (part.start) {
-            formDataOptions = Object.assign(formDataOptions, { append: part.fingerprint })
-          } else if (policy && policy.mode === 'replace') {
-            this.handle.attach(name, JSON.stringify({ op: 'remove', uuid: policy.remoteUUID }))
-          }
-          this.handle.attach(name, rs, JSON.stringify(formDataOptions))
-        } catch (e) {
-          debug('upload this.Files.forEach error', e)
+        if (part.start) {
+          formDataOptions = Object.assign(formDataOptions, { append: part.fingerprint })
+        } else if (policy && policy.mode === 'replace') {
+          form.append(name, JSON.stringify({ op: 'remove', uuid: policy.remoteUUID }))
+          // Object.assign(formDataOptions, { overwrite: policy.remoteUUID })
         }
+        form.append(name, rs, JSON.stringify(formDataOptions))
       }
-    })
-    this.handle.on('error', (err) => {
-      debug('this.handle.on error', err)
-      this.finish(err)
-    })
-
-    this.handle.end((err, res) => {
-      if (err) this.finish(err)
-      else if (res && res.statusCode === 200) this.finish(null)
-      else this.finish(res.body)
     })
   }
 
   finish(error) {
     if (this.finished) return
-    if (error) {
-      debug('upload finish, error:', error, error.code)
-      error.code = error.code || (error.status >= 500 ? 'ESERVER' : 'EOTHER')
-      error.response = null
-    }
     this.finished = true
     this.callback(error)
   }
@@ -159,23 +325,11 @@ export class UploadMultipleFiles {
   }
 }
 
-/**
-download a entire file or part of file
-
-@param {string} driveUUID
-@param {string} dirUUID
-@param {string} entryUUID
-@param {string} fileName
-@param {number} size
-@param {number} seek
-@param {Object} stream
-@param {function} callback
-*/
-
 export class DownloadFile {
-  constructor(endpoint, qs, fileName, size, seek, stream, callback) {
-    this.endpoint = endpoint
-    this.qs = qs
+  constructor(driveUUID, dirUUID, entryUUID, fileName, size, seek, stream, callback) {
+    this.driveUUID = driveUUID
+    this.dirUUID = dirUUID
+    this.entryUUID = entryUUID
     this.fileName = fileName
     this.seek = seek || 0
     this.size = size
@@ -185,25 +339,28 @@ export class DownloadFile {
   }
 
   download() {
-    this.handle = adownload(this.endpoint)
-    if (this.size) this.handle.set('Range', `bytes=${this.seek}-`)
-    this.handle
-      .query(this.qs)
-      .on('error', error => this.finish(error))
-      .on('response', (res) => {
-        if (res.status !== 200 && res.status !== 206) {
-          const e = new Error('http status code not 200')
-          e.code = 'EHTTPSTATUS'
-          e.status = res.status
-          this.finish(e)
-        }
-        res.on('end', () => this.finish(null))
-      })
+    initArgs()
+    const options = {
+      method: 'GET',
+      url: this.dirUUID === 'media'
+      ? `${server}/media/${this.entryUUID}`
+      : `${server}/drives/${this.driveUUID}/dirs/${this.dirUUID}/entries/${this.entryUUID}`,
+
+      headers: {
+        Authorization,
+        Range: this.size ? `bytes=${this.seek}-` : undefined
+      },
+      qs: this.dirUUID === 'media' ? { alt: 'data' } : { name: this.fileName }
+    }
+
+    this.handle = request(options)
+
+    this.handle.on('error', error => this.finish(error))
+
     this.handle.pipe(this.stream)
   }
 
   abort() {
-    if (this.finished) return
     debug('download abort', this.fileName)
     this.finish(null)
     if (this.handle) this.handle.abort()
@@ -211,11 +368,6 @@ export class DownloadFile {
 
   finish(error) {
     if (this.finished) return
-    if (error) {
-      debug('download finish, error:', error)
-      error.code = error.code || (error.status >= 500 ? 'ESERVER' : 'EOTHER')
-      error.response = null
-    }
     this.callback(error)
     this.finished = true
   }
@@ -242,30 +394,23 @@ createFold
 @param {string} driveUUID
 @param {string} dirUUID
 @param {string} dirname
-@param {Object[]} localEntries
-@param {string} localEntries[].entry
-@param {Object} policy
-@param {string} policy.mode
 @param {function} callback
 */
 
 export const createFold = (driveUUID, dirUUID, dirname, localEntries, policy, callback) => {
+  initArgs()
+
   const parents = true // mkdirp
 
-  const handle = apost(`drives/${driveUUID}/dirs/${dirUUID}/entries`)
+  const op = { url: `${server}/drives/${driveUUID}/dirs/${dirUUID}/entries`, headers: { Authorization } }
 
-  if (policy && policy.mode === 'replace') handle.field(dirname, JSON.stringify({ op: 'remove', uuid: policy.remoteUUID }))
-  handle.field(dirname, JSON.stringify({ op: 'mkdir', parents }))
-
-  handle.end((error, res) => {
+  const handle = request.post(op, (error, res) => {
     if (error) {
-      debug('createFold error', error.response && error.response.body)
-      callback(Object.assign({}, error, { response: null }))
+      debug('createFold error', error, res)
+      callback(error)
     } else if (res && res.statusCode === 200) {
       /* callback the created dir entry */
-      // debug('createFold', res.body)
-      callback(null, res.body[0].data)
-      // callback(null, res.body.entries.find(e => e.name === dirname))
+      callback(null, JSON.parse(res.body).entries.find(e => e.name === dirname))
     } else if (res && res.statusCode === 403 && (policy.mode === 'overwrite' || policy.mode === 'merge')) {
       /* when a file with the same name in remote, retry if given policy of overwrite or merge */
       serverGetAsync(`drives/${driveUUID}/dirs/${dirUUID}`)
@@ -273,23 +418,27 @@ export const createFold = (driveUUID, dirUUID, dirname, localEntries, policy, ca
           const entries = listNav.entries
           const index = entries.findIndex(e => e.name === dirname)
           if (index > -1) {
-            const nameSpace = [...entries.map(e => e.name), localEntries.map(e => path.parse(e).base)]
+            const nameSpace = [...entries.map(e => e.name), localEntries.map(e => e.replace(/^.*\//, ''))]
             const mode = policy.mode === 'overwrite' ? 'replace' : 'rename'
             const checkedName = policy.mode === 'overwrite' ? dirname : getName(dirname, nameSpace)
             const remoteUUID = entries[index].uuid
             debug('retry createFold', dirname, mode, checkedName, remoteUUID)
             createFold(driveUUID, dirUUID, checkedName, localEntries, { mode, checkedName, remoteUUID }, callback)
-          } else callback(res.body)
+          } else callback(JSON.parse(res.body))
         })
-        .catch(e => callback(Object.assign({}, e, { response: null })))
-    } else callback(res.body) // response code not 200 and no policy
+        .catch(e => callback(e))
+    } else callback(JSON.parse(res.body)) // response code not 200 and no policy
   })
+
+  const form = handle.form()
+  if (policy && policy.mode === 'replace') form.append(dirname, JSON.stringify({ op: 'remove', uuid: policy.remoteUUID }))
+  form.append(dirname, JSON.stringify({ op: 'mkdir', parents }))
 }
 
 export const createFoldAsync = Promise.promisify(createFold)
 
 /**
-download tmp File
+downloadFile
 
 @param {string} driveUUID
 @param {string} dirUUID
@@ -299,25 +448,32 @@ download tmp File
 @param {function} callback
 */
 
-export const downloadFile = (driveUUID, dirUUID, entryUUID, fileName, downloadPath, callback) => {
-  const filePath = downloadPath ? path.join(downloadPath, fileName) : path.join(getTmpPath(), `${entryUUID}AND${fileName}`)
+export const downloadFile = async (driveUUID, dirUUID, entryUUID, fileName, downloadPath, callback) => {
+  initArgs()
+  const filePath = path.join(getTmpPath(), `${entryUUID}AND${fileName}`)
   fs.access(filePath, (error) => {
-    if (error) {
-      debug('no cache download file', fileName)
-      const tmpPath = path.join(getTmpTransPath(), UUID.v4())
-      const stream = fs.createWriteStream(tmpPath)
-      stream.on('error', err => callback(err))
-      stream.on('finish', () => {
-        fs.rename(tmpPath, filePath, (err) => {
-          if (err) return callback(err)
-          return callback(null, filePath)
-        })
-      })
+    if (!error) {
+      console.log('find file', fileName)
+      return callback(null, filePath)
+    }
+    console.log('no file', fileName)
+    const tmpPath = downloadPath || path.join(getTmpTransPath(), entryUUID)
+    const options = {
+      method: 'GET',
+      url: `${server}/drives/${driveUUID}/dirs/${dirUUID}/entries/${entryUUID}`,
+      headers: { Authorization },
+      qs: { name: fileName }
+    }
 
-      const handle = adownload(dirUUID === 'media' ? `media/${entryUUID}` : `drives/${driveUUID}/dirs/${dirUUID}/entries/${entryUUID}`)
-        .query({ name: fileName })
-        .on('error', err => callback(Object.assign({}, err, { response: null })))
-      handle.pipe(stream)
-    } else callback(null, filePath)
+    const stream = fs.createWriteStream(tmpPath)
+    stream.on('finish', () => {
+      // if (!downloadPath) // TODO rename
+      fs.rename(tmpPath, filePath, (err) => {
+        if (err) return callback(err)
+        return callback(null, filePath)
+      })
+    })
+    const handle = request(options).on('error', err => callback(err))
+    handle.pipe(stream)
   })
 }

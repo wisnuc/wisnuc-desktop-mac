@@ -38,7 +38,7 @@ class Task {
       this.count = 0
       this.finishCount = 0
       this.finishDate = 0
-      this.name = props.policies[0] && props.policies[0].checkedName || path.parse(props.entries[0]).base
+      this.name = props.policies[0] && props.policies[0].checkedName || props.entries[0].replace(/^.*\//, '')
       this.paused = true
       this.restTime = 0
       this.size = 0
@@ -77,15 +77,14 @@ class Task {
         const read = async (entries, dirUUID, driveUUID, policies, task) => {
           const files = []
           for (let i = 0; i < entries.length; i++) {
-            // if (task.paused) throw Error('task paused !')
-            if (task.paused) break
+            if (task.paused) throw Error('task paused !')
             const entry = entries[i]
             const policy = policies[i]
             const stat = await fs.lstatAsync(path.resolve(entry))
             task.count += 1
             if (stat.isDirectory()) {
               /* create fold and return the uuid */
-              const dirname = policy.mode === 'rename' ? policy.checkedName : path.parse(entry).base
+              const dirname = policy.mode === 'rename' ? policy.checkedName : entry.replace(/^.*\//, '')
               const dirEntry = await createFoldAsync(driveUUID, dirUUID, dirname, entries, policy)
               const uuid = dirEntry.uuid
 
@@ -115,7 +114,7 @@ class Task {
 
     this.hash = new Transform({
       name: 'hash',
-      concurrency: 2,
+      concurrency: 4,
       push(x) {
         const { files, dirUUID, driveUUID, task } = x
         // debug('this.hash push', { files, dirUUID, driveUUID })
@@ -180,7 +179,7 @@ class Task {
           const nameMap = new Map() // only same name
           const nameSpace = [] // used to check name
           local.forEach((l) => {
-            const name = l.policy.mode === 'rename' ? l.policy.checkedName : path.parse(l.entry).base
+            const name = l.policy.mode === 'rename' ? l.policy.checkedName : l.entry.replace(/^.*\//, '')
             const key = name.concat(l.parts[l.parts.length - 1].fingerprint) // local file's key: name + fingerprint
             map.set(key, l)
             nameMap.set(name, key)
@@ -210,15 +209,14 @@ class Task {
             if (mode === 'merge') mode = 'rename'
             if (mode === 'overwrite') mode = 'replace'
             mapValue.forEach((l) => {
-              const name = path.parse(l.entry).base // TODO mode rename but still same name ?
+              const name = l.entry.replace(/^.*\//, '') // TODO mode rename but still same name ?
               const checkedName = getName(name, nameSpace)
               const remoteUUID = remote.find(r => r.name === name).uuid
               debug('get files with same name but different hash', { entry: l.entry, mode, checkedName, remoteUUID })
               l.policy = Object.assign({}, { mode, checkedName, remoteUUID }) // important: assign a new object !
             })
           }
-          if (!task.paused && !result.length && task.finishCount === task.count &&
-            this.readDir.isSelfStopped() && this.hash.isSelfStopped()) {
+          if (!result.length && task.finishCount === task.count && this.readDir.isSelfStopped() && this.hash.isSelfStopped()) {
             task.finishDate = (new Date()).getTime()
             task.state = 'finished'
             clearInterval(task.countSpeed)
@@ -262,7 +260,7 @@ class Task {
 
         const Files = X.map((x) => {
           const { entry, parts, policy, task } = x
-          const name = policy.mode === 'rename' ? policy.checkedName : path.parse(entry).base
+          const name = policy.mode === 'rename' ? policy.checkedName : entry.replace(/^.*\//, '')
           const readStreams = parts.map(part => fs.createReadStream(entry, { start: part.start, end: part.end, autoClose: true }))
           for (let i = 0; i < parts.length; i++) {
             const rs = readStreams[i]
@@ -290,11 +288,7 @@ class Task {
           callback(error, { driveUUID, dirUUID, Files, task })
         })
         task.reqHandles.push(handle)
-        try {
         handle.upload()
-        } catch (e) {
-          debug('handle.upload error', e)
-        }
       }
     })
 
@@ -304,7 +298,7 @@ class Task {
       const { dirUUID, task } = x
       getMainWindow().webContents.send('driveListUpdate', { uuid: dirUUID })
       // debug('this.readDir.on data', task.finishCount, task.count, this.readDir.isStopped())
-      if (!task.paused && task.finishCount === task.count && this.readDir.isStopped() && !task.errors.length) {
+      if (task.finishCount === task.count && this.readDir.isStopped() && !task.errors.length) {
         task.finishDate = (new Date()).getTime()
         task.state = 'finished'
         task.compactStore()

@@ -4,8 +4,8 @@ import UUID from 'uuid'
 import Debug from 'debug'
 import { dialog, ipcMain } from 'electron'
 import { getMainWindow } from './window'
-import { serverGetAsync } from './server'
 import { createTask } from './uploadTransform'
+import { serverGetAsync } from './server'
 
 Promise.promisifyAll(fs) // babel would transform Promise to bluebird
 
@@ -40,7 +40,7 @@ const readUploadInfoAsync = async (entries, dirUUID, driveUUID) => {
   const nameSpace = []
   for (let i = 0; i < entries.length; i++) {
     const entry = entries[i]
-    const name = path.parse(entry).base
+    const name = entry.replace(/^.*\//, '')
     nameSpace.push(name)
     const stat = await fs.lstatAsync(path.resolve(entry))
     const entryType = stat.isDirectory() ? 'directory' : stat.isFile() ? 'file' : 'others'

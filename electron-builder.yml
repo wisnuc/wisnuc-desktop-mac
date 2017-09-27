@@ -2,7 +2,7 @@ appId: com.wisnuc.app
 copyright: "Shanghai Wisnuc Technology Co., Ltd."
 productName: WISNUC
 
-asar: true
+asar: false
 
 directories:
   buildResources: /

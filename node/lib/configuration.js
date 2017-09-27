@@ -7,6 +7,7 @@ const validator = require('validator')
 const createPersistenceAsync = require('./persistence')
 
 class Config {
+
   constructor(config, persistence) {
     this.config = config
     this.persistence = persistence
@@ -22,22 +23,18 @@ class Config {
   }
 }
 
-class UserConfig {
+class UserConfig extends Config {
+
   constructor(config, persistence, userUUID) {
-    this.config = config
-    this.persistence = persistence
+    super(config, persistence)
     this.userUUID = userUUID
   }
 
   getConfig() {
     return Object.assign({}, this.config, { userUUID: this.userUUID })
   }
-
-  setConfig(props) {
-    this.config = Object.assign({}, props)
-    this.persistence.save(this.config)
-  }
 }
+
 
 //
 // rootpath: app.getPath('appData')
@@ -134,9 +131,9 @@ class Configuration {
   }
 
   async makeUserDirsAsync(uuid) {
-    await mkdirpAsync(this.getUserDir(uuid))
-    // await mkdirpAsync(this.getUserDownloadDir(uuid))
-    // await mkdirpAsync(this.getUserDatabaseDir(uuid))
+    await mkdirpAsync(this.getUserDir())
+    await mkdirpAsync(this.getUserDownloadDir(uuid))
+    await mkdirpAsync(this.getUserDatabaseDir(uuid))
   }
 
   // init global dirs during startup
@@ -167,40 +164,17 @@ class Configuration {
     const configPath = this.getUserConfigFilePath(userUUID)
     const config = await this.loadObjectAsync(configPath) || {}
     const tmpdir = this.getTmpDir()
-    const persistence = await createPersistenceAsync(configPath, tmpdir)
+    const persistence = createPersistenceAsync(configPath, tmpdir)
 
     return new UserConfig(config, persistence, userUUID)
   }
-
-  // update user config
-  async updateUserConfigAsync(userUUID, newConfig) {
-    await this.makeUserDirsAsync(userUUID)
-
-    const userConfigPath = this.getUserConfigFilePath(userUUID)
-    const userPreConfig = await this.loadObjectAsync(userConfigPath) || {}
-    const userConfig = Object.assign({}, userPreConfig, newConfig)
-    const tmpdir = this.getTmpDir()
-    const persistence = await createPersistenceAsync(userConfigPath, tmpdir)
-    const handle = new UserConfig(userConfig, persistence, userUUID)
-    handle.setConfig(userConfig)
-    const index = this.userConfigs.findIndex(uc => uc.getConfig() && uc.getConfig().userUUID === userUUID)
-    if (index > -1) this.userConfigs.splice(index, 1)
-    this.userConfigs.push(handle)
-    console.log('updateUserConfigAsync', userUUID, newConfig, userConfig)
-    global.dispatch({
-      type: 'USER_CONFIG_UPDATE',
-      data: this.userConfigs.map(uc => uc.getConfig())
-    })
-    return userConfig
-  }
-
 
   // load or create global config
   async initGlobalConfigAsync() {
     const configPath = this.getGlobalConfigPath()
     const config = await this.loadObjectAsync(configPath) || {}
     const tmpdir = this.getTmpDir()
-    const persistence = await createPersistenceAsync(configPath, tmpdir)
+    const persistence = createPersistenceAsync(configPath, tmpdir)
 
     return new Config(config, persistence)
   }
@@ -211,24 +185,12 @@ class Configuration {
     const oldConfig = await this.loadObjectAsync(configPath) || {}
     const config = Object.assign({}, oldConfig, newConfig)
     const tmpdir = this.getTmpDir()
-    const persistence = await createPersistenceAsync(configPath, tmpdir)
-    this.globalConfig = new Config(config, persistence)
-    this.globalConfig.setConfig(config)
-
+    const persistence = createPersistenceAsync(configPath, tmpdir)
     global.dispatch({
       type: 'CONFIG_UPDATE',
-      data: {
-        tmpTransPath: this.getTmpTransDir(),
-        tmpPath: this.getTmpDir(),
-        thumbPath: this.getThumbnailDir(),
-        imagePath: this.getImageCacheDir(),
-        downloadPath: this.getWisnucDownloadsDir(),
-        lastDevice: this.globalConfig.getConfig().lastDevice,
-        noCloseConfirm: this.globalConfig.getConfig().noCloseConfirm,
-        enableSleep: this.globalConfig.getConfig().enableSleep
-      }
+      data: config
     })
-    return config
+    return new Config(config, persistence)
   }
 
   // init
@@ -261,9 +223,10 @@ class Configuration {
         thumbPath: this.getThumbnailDir(),
         imagePath: this.getImageCacheDir(),
         downloadPath: this.getWisnucDownloadsDir(),
-        lastDevice: this.globalConfig.getConfig().lastDevice,
-        noCloseConfirm: this.globalConfig.getConfig().noCloseConfirm,
-        enableSleep: this.globalConfig.getConfig().enableSleep
+        lastDevice: globalConfig.getConfig().lastDevice,
+        noCloseConfirm: globalConfig.getConfig().noCloseConfirm,
+        enableSleep: globalConfig.getConfig().enableSleep,
+        users: this.userConfigs.map(uc => uc.getConfig())
       }
     })
   }

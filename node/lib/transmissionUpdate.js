@@ -1,10 +1,10 @@
 import os from 'os'
 import Debug from 'debug'
 import child from 'child_process'
-import { ipcMain, powerSaveBlocker, shell } from 'electron'
+import { ipcMain, powerSaveBlocker } from 'electron'
 
 import { getMainWindow } from './window'
-import store from './store'
+import store from '../serve/store/store'
 
 const debug = Debug('node:lib:transmissionUpdate:')
 
@@ -22,7 +22,7 @@ const sendMsg = () => {
   const userTasks = []
   const finishTasks = []
   Tasks.forEach((t) => {
-    if (t.state === 'finished') finishTasks.push(typeof t.status === 'function' ? t.status() : t)
+    if (t.state === 'finished') finishTasks.push(t)
     else userTasks.push(t.status())
   })
   userTasks.sort((a, b) => a.createTime - b.createTime) // Ascending
@@ -60,7 +60,7 @@ const actionHandler = (e, uuids, type) => {
   switch (type) {
     case 'DELETE':
       func = (task) => {
-        if (typeof task.pause === 'function' && task.state !== 'finished') task.pause()
+        if (typeof task.pause === 'function') task.pause()
         Tasks.splice(Tasks.indexOf(task), 1)
         global.db.task.remove({ _id: task.uuid }, { multi: true }, err => err && debug('DELETE_RUNNING error: ', err))
       }
@@ -93,7 +93,25 @@ const clearTasks = () => {
 /* ipc listeners */
 ipcMain.on('GET_TRANSMISSION', sendMsg)
 
-ipcMain.on('OPEN_TRANSMISSION', (e, paths) => paths.forEach(p => shell.openItem(p)))
+ipcMain.on('OPEN_TRANSMISSION', (e, tasks) => { // FIXME
+  const osType = os.platform()
+  tasks.forEach((task) => {
+    const taskPath = task.downloadPath
+    debug('打开目录的文件资源管理器', taskPath) // FIXME
+    switch (osType) {
+      case 'win32':
+        child.exec(`explorer ${taskPath}`, {})
+        break
+      case 'linux':
+        child.exec(`nautilus ${taskPath}`, {})
+        break
+      case 'darwin':
+        child.exec(`open ${taskPath}`, {})
+        break
+      default :
+    }
+  })
+})
 
 ipcMain.on('PAUSE_TASK', (e, uuids) => actionHandler(e, uuids, 'PAUSE'))
 ipcMain.on('RESUME_TASK', (e, uuids) => actionHandler(e, uuids, 'RESUME'))
@@ -107,6 +125,6 @@ ipcMain.on('START_TRANSMISSION', () => {
   })
 })
 
-ipcMain.on('LOGOUT', clearTasks)
+ipcMain.on('LOGIN_OUT', clearTasks)
 
 export { Tasks, sendMsg, clearTasks }
