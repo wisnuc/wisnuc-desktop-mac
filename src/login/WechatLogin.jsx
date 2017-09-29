@@ -1,12 +1,11 @@
 import React from 'react'
 import Debug from 'debug'
 import Radium from 'radium'
-import { Avatar, CircularProgress, Divider } from 'material-ui'
+import { CircularProgress, Divider } from 'material-ui'
 import RightIcon from 'material-ui/svg-icons/hardware/keyboard-arrow-right'
 import CloudDoneIcon from 'material-ui/svg-icons/file/cloud-done'
 import CloudOffIcon from 'material-ui/svg-icons/file/cloud-off'
 import WifiIcon from 'material-ui/svg-icons/notification/wifi'
-import LocalLogin from './LocalLogin'
 import FlatButton from '../common/FlatButton'
 import Checkmark from '../common/Checkmark'
 import { Barcelona, WISNUC } from '../common/Svg'
@@ -87,10 +86,11 @@ class WechatLogin extends React.Component {
             lanip = ips[0]
             break
           }
-        } catch(e) {
+        } catch (e) {
           debug('this.autologinAsync can not connect lanip', ips[i], e)
         }
       }
+      // lanip = null
       if (lanip) {
         const token = this.state.wxData.token
         const guid = this.state.wxData.user.id
@@ -108,6 +108,7 @@ class WechatLogin extends React.Component {
           },
           mdev: { address: lanip, domain: 'local' }
         })
+        this.props.ipcRenderer.send('WECHAT_LOGIN', user.uuid, { weChat: this.state.wxData.user })
         this.done('LOGIN', this.props.selectedDevice, user)
       } else {
         const token = this.state.wxData.token
@@ -132,6 +133,7 @@ class WechatLogin extends React.Component {
 
     this.autologin = () => {
       if (this.out) return
+      this.setState({ logining: true })
       this.autologinAsync().catch((e) => {
         debug('this.autologin', e)
         this.setState({ wechatLogin: 'fail' })
@@ -154,12 +156,12 @@ class WechatLogin extends React.Component {
 
     this.enterList = () => {
       clearInterval(this.interval)
-      this.setState({ wechatLogin: 'list', count: 3 })
+      this.setState({ wechatLogin: 'list', count: 3, logining: false })
     }
 
     this.resetWCL = () => {
       this.initWXLogin()
-      this.setState({ wechatLogin: '' })
+      this.setState({ wechatLogin: '', count: 3, logining: false })
     }
 
     this.intiWxScript = () => {
@@ -292,7 +294,12 @@ class WechatLogin extends React.Component {
           !this.state.error ?
             <div style={{ width: 332, height: 492, padding: 24, position: 'relative', backgroundColor: '#FAFAFA' }}>
               <div style={{ height: 42 }} />
-              <div style={{ height: 406, width: 300, margin: 'auto' }} id="login_container" />
+              <div
+                style={{ height: 406, width: 300, margin: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                id="login_container"
+              >
+                <CircularProgress />
+              </div>
               <div style={{ height: 36 }} />
 
               {/* overlay text */}

@@ -8,7 +8,7 @@ const request = require('request')
 
 const Transform = require('./transform')
 const { readXattr, setXattr } = require('./xattr')
-const { serverGetAsync, DownloadFile } = require('./server')
+const { serverGetAsync, DownloadFile, isCloud } = require('./server')
 const { getMainWindow } = require('./window')
 const { Tasks, sendMsg } = require('./transmissionUpdate')
 
@@ -19,13 +19,12 @@ const getName = async (name, dirPath, entries) => {
   const nameSpace = entries.map(e => e.name)
   nameSpace.push(...list)
   let newName = name
-  const extension = name.replace(/^.*\./, '')
+  const extension = path.parse(name).ext
   for (let i = 1; nameSpace.includes(newName) || nameSpace.includes(`${newName}.download`); i++) {
     if (!extension || extension === name) {
       newName = `${name}(${i})`
     } else {
-      const pureName = name.match(/^.*\./)[0]
-      newName = `${pureName.slice(0, pureName.length - 1)}(${i}).${extension}`
+      newName = `${path.parse(name).name}(${i}).${extension}`
     }
   }
   return newName
@@ -91,7 +90,7 @@ class Task {
 
               /* get children from remote */
               const listNav = await serverGetAsync(`drives/${driveUUID}/dirs/${entry.uuid}`)
-              const children = listNav.entries
+              const children = isCloud() ? listNav.data.entries : listNav.entries
 
               this.push({ entries: children, downloadPath: entry.downloadPath, dirUUID: entry.uuid, driveUUID, task })
             } else {

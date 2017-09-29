@@ -80,6 +80,7 @@ class Device extends RequestManager {
       case 'info':
         r = request
           .get(`http://${args.ip}:3000/station/info`)
+          .timeout(2000)
         break
 
       case 'device':
@@ -122,8 +123,7 @@ class Device extends RequestManager {
 
       case 'setFanScale':
         r = request
-        .post(`http://${this.mdev.address}:3000/control/fan`)
-        .timeout(30000)
+        .patch(`http://${this.mdev.address}:3000/control/fan`)
         .send(args)
         .set('Accept', 'application/json')
         break

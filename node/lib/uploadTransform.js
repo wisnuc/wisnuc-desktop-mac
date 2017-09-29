@@ -14,13 +14,12 @@ const { Tasks, sendMsg } = require('./transmissionUpdate')
 /* return a new file name */
 const getName = (name, nameSpace) => {
   let checkedName = name
-  const extension = name.replace(/^.*\./, '')
+  const extension = path.parse(name).ext
   for (let i = 1; nameSpace.includes(checkedName); i++) {
     if (!extension || extension === name) {
       checkedName = `${name}(${i})`
     } else {
-      const pureName = name.match(/^.*\./)[0]
-      checkedName = `${pureName.slice(0, pureName.length - 1)}(${i}).${extension}`
+      checkedName = `${path.parse(name).name}(${i}).${extension}`
     }
   }
   return checkedName
@@ -79,13 +78,16 @@ class Task {
           for (let i = 0; i < entries.length; i++) {
             // if (task.paused) throw Error('task paused !')
             if (task.paused) break
-            const entry = entries[i]
             const policy = policies[i]
+            const entry = entries[i]
             const stat = await fs.lstatAsync(path.resolve(entry))
-            task.count += 1
+            const fullName = path.parse(entry).base
+            if (fullName === '.DS_Store' && !stat.isDirectory()) continue
+            else task.count += 1
+
             if (stat.isDirectory()) {
               /* create fold and return the uuid */
-              const dirname = policy.mode === 'rename' ? policy.checkedName : path.parse(entry).base
+              const dirname = policy.mode === 'rename' ? policy.checkedName : fullName
 
               const dirEntry = await createFoldAsync(driveUUID, dirUUID, dirname, entries, policy)
               const uuid = dirEntry.uuid
@@ -101,6 +103,7 @@ class Task {
               childPolicies.fill({ mode: policy.mode }) // !!! fill with one object, all shared !!!
               if (policy.mode === 'rename' || policy.mode === 'replace') childPolicies.fill({ mode: 'normal' })
               // debug('childPolicies', childPolicies)
+              if (task.paused) break
               this.push({ entries: newEntries, dirUUID: uuid, driveUUID, policies: childPolicies, task })
             } else {
               task.size += stat.size
@@ -176,6 +179,7 @@ class Task {
         const diffAsync = async (local, driveUUID, dirUUID, task) => {
           const listNav = await serverGetAsync(`drives/${driveUUID}/dirs/${dirUUID}`)
           const remote = isCloud() ? listNav.data.entries : listNav.entries
+          debug('listNav diff', listNav, remote)
           if (!remote.length) return local
           const map = new Map() // compare hash and name
           const nameMap = new Map() // only same name
@@ -205,7 +209,7 @@ class Task {
           const nameValue = [...nameMap.values()]
           nameValue.forEach(key => map.delete(key))
           const mapValue = [...map.values()]
-          debug('this.diff transform', X.length, X[0].entry, mapValue)
+          // debug('this.diff transform', X.length, X[0].entry, mapValue)
           if (mapValue.length) {
             let mode = mapValue[0].policy.mode
             if (mode === 'merge') mode = 'rename'
@@ -213,11 +217,26 @@ class Task {
             mapValue.forEach((l) => {
               const name = path.parse(l.entry).base // TODO mode rename but still same name ?
               const checkedName = getName(name, nameSpace)
-              const remoteUUID = remote.find(r => r.name === name).uuid
-              debug('get files with same name but different hash', { entry: l.entry, mode, checkedName, remoteUUID })
-              l.policy = Object.assign({}, { mode, checkedName, remoteUUID }) // important: assign a new object !
+              const remoteFile = remote.find(r => r.name === name)
+              const remoteUUID = remoteFile.uuid
+              const remoteHash = remoteFile.hash
+
+              let seed = 0
+              if (l.parts.length > 0) {
+                const index = l.parts.findIndex(p => p.target === remoteHash)
+                if (index > 0) {
+                  seed = index
+                  task.completeSize += index * 1024 * 1024 * 1024
+                }
+              }
+              
+              /* continue to upload big file */
+              debug('get files with same name but different hash\n', l.entry, mode, checkedName, remoteUUID, seed, l.parts)
+
+              l.policy = Object.assign({}, { mode, checkedName, remoteUUID, seed }) // important: assign a new object !
             })
           }
+          /* task all finished */
           if (!task.paused && !result.length && task.finishCount === task.count &&
             this.readDir.isSelfStopped() && this.hash.isSelfStopped()) {
             task.finishDate = (new Date()).getTime()
@@ -232,7 +251,10 @@ class Task {
         const { driveUUID, dirUUID, task } = X[0]
         if (task.state !== 'uploading') task.state = 'diffing'
 
-        diffAsync(X, driveUUID, dirUUID, task).then(value => callback(null, value)).catch(callback)
+        diffAsync(X, driveUUID, dirUUID, task).then(value => callback(null, value)).catch(e => {
+          debug('diffAsync error', e)
+          callback(e)
+        })
       }
     })
 
@@ -275,7 +297,7 @@ class Task {
               const gap = rs.bytesRead - lastTimeSize
               task.completeSize += gap
               lastTimeSize = rs.bytesRead
-              debug('task.completeSize', task.completeSize)
+              // debug('task.completeSize', task.completeSize)
             }
             // rs.on('data', (c) => {count += c.length;debug('data',count)})
             rs.on('open', () => {
@@ -287,7 +309,7 @@ class Task {
               task.completeSize += gap
               lastTimeSize = rs.bytesRead
               if (task.paused) return
-              task.finishCount += 1
+              if (i === parts.length - 1) task.finishCount += 1
               sendMsg()
             })
           }

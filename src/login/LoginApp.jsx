@@ -19,6 +19,7 @@ class LoginApp extends React.Component {
   }
 
   componentDidMount() {
+    document.getElementById('start-bg').style.display = 'none'
     setTimeout(() => this.setState({ hello: false }), 300)
   }
 
@@ -71,6 +72,11 @@ class LoginApp extends React.Component {
             onTouchTap={this.toggleMode}
             icon={<RightIcon color="#FAFAFA" />}
           />
+        </div>
+
+        {/* version */}
+        <div style={{ position: 'absolute', bottom: 24, left: 24, fontSize: 14, color: '#FAFAFA' }}>
+          { `版本: ${global.config.appVersion}` }
         </div>
 
         {/* copyright */}

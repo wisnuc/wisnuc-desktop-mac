@@ -45,7 +45,7 @@ class RunningTask extends React.Component {
   getStatus(task) {
     if (task.state === 'failed') return '已停止'
     if (task.paused) return '已暂停'
-    if (task.state === 'visitless') return '等待中'
+    if (task.state === 'visitless') return '正在校验'
     if (task.state === 'hashing') return '正在校验'
     if (task.state === 'diffing') return '正在校验'
     if (task.state === 'uploadless') return '等待上传'
@@ -104,7 +104,7 @@ class RunningTask extends React.Component {
 
   renderPercent(task) {
     if (task.size === 0) return '0%'
-    const percent = (Math.abs(task.completeSize / task.size) * 100).toFixed(2) * 0.99
+    const percent = (Math.abs(task.completeSize / task.size) * 99).toFixed(2)
     return `${percent}%`
   }
 

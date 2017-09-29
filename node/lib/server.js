@@ -69,7 +69,7 @@ get json data from server
 
 export const serverGet = (endpoint, callback) => {
   aget(endpoint).end((err, res) => {
-    if (err) return callback(Object.assign({}, err, { response: null }))
+    if (err) return callback(Object.assign({}, err, { response: err.response && err.response.body }))
     if (res.statusCode !== 200 && res.statusCode !== 206) {
       const e = new Error('http status code not 200')
       e.code = 'EHTTPSTATUS'
@@ -111,35 +111,31 @@ export class UploadMultipleFiles {
 
   localUpload() {
     this.handle = apost(`drives/${this.driveUUID}/dirs/${this.dirUUID}/entries`)
-    
     this.Files.forEach((file) => {
       const { name, parts, readStreams, policy } = file
       for (let i = 0; i < parts.length; i++) {
+        if (policy && policy.seed !== 0 && policy.seed > i) continue // big file, upload from part[seed]
         const rs = readStreams[i]
         const part = parts[i]
         let formDataOptions = {
           size: part.end ? part.end - part.start + 1 : 0,
           sha256: part.sha
         }
-        try {
-          if (part.start) {
-            formDataOptions = Object.assign(formDataOptions, { append: part.fingerprint })
-          } else if (policy && policy.mode === 'replace') {
-            this.handle.field(name, JSON.stringify({ op: 'remove', uuid: policy.remoteUUID }))
-          }
-          this.handle.attach(name, rs, JSON.stringify(formDataOptions))
-        } catch (e) {
-          debug('upload this.Files.forEach error', e)
+        if (part.start) {
+          formDataOptions = Object.assign(formDataOptions, { append: part.target })
+        } else if (policy && policy.mode === 'replace') {
+          this.handle.field(name, JSON.stringify({ op: 'remove', uuid: policy.remoteUUID }))
         }
+        this.handle.attach(name, rs, JSON.stringify(formDataOptions))
       }
     })
 
     this.handle.on('error', (err) => {
-      debug('this.handle.on error', err)
       this.finish(err)
     })
 
     this.handle.end((err, res) => {
+      // debug('localUpload this.handle.end', err, res && res.body)
       if (err) this.finish(err)
       else if (res && res.statusCode === 200) this.finish(null)
       else this.finish(res.body)
@@ -150,7 +146,7 @@ export class UploadMultipleFiles {
     if (this.finished) return
     const ep = `drives/${this.driveUUID}/dirs/${this.dirUUID}/entries`
     const file = this.Files[0]
-    
+
     const { name, parts, readStreams, policy } = file
     const rs = readStreams[0]
     const part = parts[0]
@@ -170,7 +166,6 @@ export class UploadMultipleFiles {
 
     debug('cloudUpload', name, policy)
     this.handle.on('error', (err) => {
-      debug('this.handle.on error', err)
       this.finish(err)
     })
 
@@ -205,11 +200,11 @@ export class UploadMultipleFiles {
   }
 
   finish(error) {
+    debug('cloudUpload error', error)
     if (this.finished) return
     if (error) {
-      debug('upload finish, error:', error, error.code)
-      error.code = error.code || (error.status >= 500 ? 'ESERVER' : 'EOTHER')
-      error.response = null
+      debug('upload error', error.response && error.response.body)
+      error.response = error.response && error.response.body
     }
     this.finished = true
     this.callback(error)
@@ -274,9 +269,8 @@ export class DownloadFile {
   finish(error) {
     if (this.finished) return
     if (error) {
-      debug('download finish, error:', error)
-      error.code = error.code || (error.status >= 500 ? 'ESERVER' : 'EOTHER')
-      error.response = null
+      debug('download finish, error:', error.response && error.response.body)
+      error.response = error.response && error.response.body
     }
     this.callback(error)
     this.finished = true
@@ -286,13 +280,12 @@ export class DownloadFile {
 /* return a new file name */
 const getName = (name, nameSpace) => {
   let checkedName = name
-  const extension = name.replace(/^.*\./, '')
+  const extension = path.parse(name).ext
   for (let i = 1; nameSpace.includes(checkedName); i++) {
     if (!extension || extension === name) {
       checkedName = `${name}(${i})`
     } else {
-      const pureName = name.match(/^.*\./)[0]
-      checkedName = `${pureName.slice(0, pureName.length - 1)}(${i}).${extension}`
+      checkedName = `${path.parse(name).name}(${i}).${extension}`
     }
   }
   return checkedName
@@ -357,8 +350,8 @@ export const createFold = (driveUUID, dirUUID, dirname, localEntries, policy, ca
               createFold(driveUUID, dirUUID, checkedName, localEntries, { mode, checkedName, remoteUUID }, callback)
             } else callback(res.body)
           })
-          .catch(e => callback(Object.assign({}, e, { response: null })))
-      } else callback(Object.assign({}, error, { response: null, code: error.response.body[0].error.code }))
+          .catch(e => callback(Object.assign({}, e, { response: e.response && e.response.body })))
+      } else callback(Object.assign({}, error, { response: error.response && error.response.body }))
     } else if (res && res.statusCode === 200) {
       // debug('createFold handle.end res.statusCode 200', res.body)
       /* mode === 'replace' && stationID: need to retry creatFold */
@@ -402,7 +395,7 @@ export const downloadFile = (driveUUID, dirUUID, entryUUID, fileName, downloadPa
 
       const handle = adownload(dirUUID === 'media' ? `media/${entryUUID}` : `drives/${driveUUID}/dirs/${dirUUID}/entries/${entryUUID}`)
         .query({ name: fileName })
-        .on('error', err => callback(Object.assign({}, err, { response: null })))
+        .on('error', err => callback(Object.assign({}, err, { response: err.response && err.response.body })))
       handle.pipe(stream)
     } else callback(null, filePath)
   })
