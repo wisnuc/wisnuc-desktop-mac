@@ -83,6 +83,7 @@ class Task {
             const stat = await fs.lstatAsync(path.resolve(entry))
             const fullName = path.parse(entry).base
             if (fullName === '.DS_Store' && !stat.isDirectory()) continue
+            if (!stat.isFile() && !stat.isDirectory()) continue
             else task.count += 1
 
             if (stat.isDirectory()) {
@@ -179,7 +180,7 @@ class Task {
         const diffAsync = async (local, driveUUID, dirUUID, task) => {
           const listNav = await serverGetAsync(`drives/${driveUUID}/dirs/${dirUUID}`)
           const remote = isCloud() ? listNav.data.entries : listNav.entries
-          debug('listNav diff', listNav, remote)
+          // debug('listNav diff', listNav, remote)
           if (!remote.length) return local
           const map = new Map() // compare hash and name
           const nameMap = new Map() // only same name
@@ -431,7 +432,7 @@ const createTask = (uuid, entries, dirUUID, driveUUID, taskType, createTime, isN
   const task = new Task({ uuid, entries, dirUUID, driveUUID, taskType, createTime, isNew, policies })
   Tasks.push(task)
   task.createStore()
-  debug('createTask', preStatus)
+  // debug('createTask', preStatus)
   if (preStatus) Object.assign(task, preStatus, { isNew: false, paused: true, speed: 0, restTime: 0 })
   else task.run()
   sendMsg()
