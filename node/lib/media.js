@@ -1,7 +1,7 @@
 /* import core module */
 import fs from 'fs'
 import path from 'path'
-import UUID from 'node-uuid'
+import UUID from 'uuid'
 import { ipcMain } from 'electron'
 import { EventEmitter } from 'events'
 
@@ -157,12 +157,12 @@ class GetImageTask extends Worker {
   request() {
     const qs = { alt: 'data' }
     this.serverDownloadAsync(`media/${this.digest}`, qs, this.dirpath, this.digest)
-    .then((data) => {
-      this.finish(path.join(this.dirpath, this.digest))
-    })
-    .catch((e) => {
-      this.error(e)
-    })
+      .then((data) => {
+        this.finish(path.join(this.dirpath, this.digest))
+      })
+      .catch((e) => {
+        this.error(e)
+      })
   }
 }
 

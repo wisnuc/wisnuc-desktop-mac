@@ -1,5 +1,5 @@
 import React from 'react'
-import UUID from 'node-uuid'
+import UUID from 'uuid'
 import Debug from 'debug'
 import { Paper, Card, IconButton, CircularProgress } from 'material-ui'
 import ZoomIn from 'material-ui/svg-icons/action/zoom-in'
@@ -69,6 +69,7 @@ class PhotoItem extends React.Component {
     this.props.ipcRenderer.send('mediaShowThumb', this.session, this.props.digest, 210, 210)
     this.props.ipcRenderer.on('getThumbSuccess', this.updatePath)
   }
+
   componentWillReceiveProps(nextProps) {
     if (nextProps.selectedItems.length !== this.props.selectedItems.length) {
       this.setState({
@@ -77,18 +78,13 @@ class PhotoItem extends React.Component {
     }
   }
 
-  shouldComponentUpdate(nextProps, nextState) {
-    return true
-    return (this.state !== nextState)
-  }
-
   componentWillUnmount() {
     this.props.ipcRenderer.removeListener('getThumbSuccess', this.updatePath)
     this.props.ipcRenderer.send('mediaHideThumb', this.session)
   }
 
   render() {
-    const { style, shiftStatus } = this.props
+    const { style, shiftStatus, size } = this.props
     this.showShiftOverlay = shiftStatus.shift && shiftStatus.items.includes(this.props.digest)
     // debug('Render PhotoItem this.props', this.props)
     return (
@@ -100,7 +96,7 @@ class PhotoItem extends React.Component {
               style={{
                 position: 'absolute',
                 zIndex: 100,
-                width: 210,
+                width: size,
                 height: 56,
                 left: 0,
                 top: 0,
@@ -180,7 +176,7 @@ class PhotoItem extends React.Component {
               style={{
                 position: 'absolute',
                 zIndex: 100,
-                width: this.state.selected ? 180 : 210,
+                width: this.state.selected ? 180 : size,
                 height: 36,
                 left: this.state.selected ? 15 : 0,
                 bottom: this.state.selected ? 15 : 0,
@@ -220,8 +216,8 @@ class PhotoItem extends React.Component {
             <img
               src={this.path}
               alt="img"
-              height={this.state.selected ? 180 : 210}
-              width={this.state.selected ? 180 : 210}
+              height={this.state.selected ? 180 : size}
+              width={this.state.selected ? 180 : size}
               style={{ objectFit: 'cover' }}
             />
             <div
@@ -245,8 +241,8 @@ class PhotoItem extends React.Component {
                 style={{
                   position: 'absolute',
                   zIndex: 100,
-                  width: this.state.selected ? 180 : 210,
-                  height: this.state.selected ? 180 : 210,
+                  width: this.state.selected ? 180 : size,
+                  height: this.state.selected ? 180 : size,
                   top: this.state.selected ? 15 : 0,
                   left: this.state.selected ? 15 : 0,
                   backgroundColor: 'rgba(30, 136, 229, 0.26)'

@@ -3,10 +3,9 @@ import EventListener from 'react-event-listener'
 import keycode from 'keycode'
 import { TweenMax } from 'gsap'
 import { Paper } from 'material-ui'
-import ReactTransitionGroup from 'react-addons-transition-group'
+import ReactTransitionGroup from 'react-transition-group/TransitionGroup'
 
 class TransitionItem extends React.Component {
-
   /*
   static propTypes = {
     modal: PropTypes.bool,
@@ -125,7 +124,6 @@ class TransitionItem extends React.Component {
 }
 
 export default class CDialog extends React.Component {
-
   /*
   static propTypes = {
     open: PropTypes.bool.isRequired

@@ -16,7 +16,6 @@ import { indigo500 } from 'material-ui/styles/colors'
 import { DockerIcon } from '../common/Svg'
 
 class SubHeader extends Component {
-
   render() {
     return (
       <div
@@ -35,7 +34,6 @@ class SubHeader extends Component {
 }
 
 class MenuSpacer extends PureComponent {
-
   render() {
     return <div style={{ height: this.props.dense ? 4 : 8 }} />
   }
@@ -43,7 +41,6 @@ class MenuSpacer extends PureComponent {
 
 @Radium
 class MenuItem extends Component {
-
   render() {
     const { icon, text, dense, primaryColor, selected, disabled } = this.props
 
@@ -80,7 +77,6 @@ class MenuItem extends Component {
 }
 
 class NavDrawer extends React.Component {
-
   renderGroup(group, ws215i) {
     const { views, nav, navTo } = this.props
 
@@ -105,7 +101,7 @@ class NavDrawer extends React.Component {
 
   render() {
     const { open, onRequestChange, views, nav, navTo } = this.props
-    console.log(' NavDrawer render', this.props)
+    // console.log(' NavDrawer render', this.props)
     const dense = true
 
     const account = views.account.ctx.props.apis.account
@@ -206,7 +202,7 @@ class NavDrawer extends React.Component {
 
         { this.renderGroup('physical') }
 
-        
+
         {/* this.renderGroup('trash') */}
 
 

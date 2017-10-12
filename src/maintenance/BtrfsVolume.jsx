@@ -25,7 +25,6 @@ import PureDialog from '../common/PureDialog.jsx'
 const debug = Debug('component:maintenance:BtrfsVolume')
 
 export default class BtrfsVolume extends React.Component {
-
   constructor(props) {
     super(props)
 
@@ -66,38 +65,36 @@ export default class BtrfsVolume extends React.Component {
       return '#000'
     }
 
-    this.VolumeTitle = (volume, boot) => {
-      return (
-        <div style={{ width: '100%', height: HEADER_HEIGHT, display: 'flex', alignItems: 'center' }}>
-          <HeaderIcon>
-            <Avatar
-              size={40}
-              color={'white'}
-              backgroundColor={this.volumeIconColor(volume, boot)}
-              icon={<RAIDIcon />}
-            />
-          </HeaderIcon>
-          <div style={{ width: 176 }}>
-            <HeaderTitle1
-              style={{
-                fontWeight: 500,
-                fontSize: 21,
-                width: 176,
-                color: this.props.state.creatingNewVolume ? 'rgba(0,0,0,0.38)' : '#212121'
-              }}
-              title="磁盘阵列"
-            />
-            <div
-              style={{ textTransform: 'capitalize', fontSize: 14, fontWeight: 500, color: '#9e9e9e', marginTop: 2 }}
-              onTouchTap={props.onTouchTap}
-            >
-              <span style={{ marginRight: 5 }}>Btrfs</span>
-              { volume.usage.data.mode && <span style={{ marginRight: 5 }}> {volume.usage.data.mode.toLowerCase()} </span> }
-            </div>
+    this.VolumeTitle = (volume, boot) => (
+      <div style={{ width: '100%', height: HEADER_HEIGHT, display: 'flex', alignItems: 'center' }}>
+        <HeaderIcon>
+          <Avatar
+            size={40}
+            color="white"
+            backgroundColor={this.volumeIconColor(volume, boot)}
+            icon={<RAIDIcon />}
+          />
+        </HeaderIcon>
+        <div style={{ width: 176 }}>
+          <HeaderTitle1
+            style={{
+              fontWeight: 500,
+              fontSize: 21,
+              width: 176,
+              color: this.props.state.creatingNewVolume ? 'rgba(0,0,0,0.38)' : '#212121'
+            }}
+            title="磁盘阵列"
+          />
+          <div
+            style={{ textTransform: 'capitalize', fontSize: 14, fontWeight: 500, color: '#9e9e9e', marginTop: 2 }}
+            onTouchTap={props.onTouchTap}
+          >
+            <span style={{ marginRight: 5 }}>Btrfs</span>
+            { volume.usage.data.mode && <span style={{ marginRight: 5 }}> {volume.usage.data.mode.toLowerCase()} </span> }
           </div>
         </div>
-      )
-    }
+      </div>
+    )
 
     this.createOperation = (operation, ...args) =>
       createOperation(this, 'dialog', operation, ...args)
@@ -190,7 +187,7 @@ export default class BtrfsVolume extends React.Component {
     const expandableHeight = this.state.expanded ?
       17 * 23 + 3 * SUBTITLE_HEIGHT + SUBTITLE_MARGINTOP * 2 + 0.5 : 0
     const ExpandedzDepth = this.state.expanded ? 2 : zDepth
-    const comment = () => volume.missing ? '有磁盘缺失' : '全部在线' // TODO if(volume.missing === true)
+    const comment = () => (volume.missing ? '有磁盘缺失' : '全部在线') // TODO if(volume.missing === true)
     const DivStyle = () => ({
       width: '100%',
       display: 'flex',
@@ -217,7 +214,7 @@ export default class BtrfsVolume extends React.Component {
             <VolumeWisnucError creatingNewVolume={this.props.state.creatingNewVolume} volume={volume} boot={boot} device={device} />
           </div>
           <div style={{ marginRight: 24 }}>
-            {this.state.expanded ? <UpIcon color={'#9e9e9e'} /> : <DownIcon color={'#9e9e9e'} />}
+            {this.state.expanded ? <UpIcon color="#9e9e9e" /> : <DownIcon color="#9e9e9e" />}
           </div>
 
         </div>
@@ -329,15 +326,13 @@ export default class BtrfsVolume extends React.Component {
             ))
             .reduce((p, c, index, array) => {
               p.push(c)
-              p.push(
-                <DoubleDivider
-                  key={index.toString()}
-                  grayLeft={index === array.length - 1 ? null : 80}
-                  colorLeft={cnv ? 80 : '100%'}
-                  accent1Color={accent1Color}
-                  width={1040}
-                />
-              )
+              p.push(<DoubleDivider
+                key={index.toString()}
+                grayLeft={index === array.length - 1 ? null : 80}
+                colorLeft={cnv ? 80 : '100%'}
+                accent1Color={accent1Color}
+                width={1040}
+              />)
               return p
             }, [])
         }
@@ -398,7 +393,7 @@ export default class BtrfsVolume extends React.Component {
                 this.props.state.creatingNewVolume === null &&
                 boot.current === null &&
                 <FlatButton
-                  label={boot.error === 'ENOALT' ? '安装' : '修复问题' }
+                  label={boot.error === 'ENOALT' ? '安装' : '修复问题'}
                   primary
                   onTouchTap={() => this.initWisnucOnVolume(volume)}
                 />
@@ -427,7 +422,7 @@ export default class BtrfsVolume extends React.Component {
           {
             this.state.pureDialog === 'init' && <div style={{ padding: 24, width: 300 }}>
               系统出现严重问题！<br />请联系闻上科技，寻求人工技术支持！
-              </div>
+                                                </div>
           }
         </PureDialog>
       </Paper>

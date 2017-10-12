@@ -1,9 +1,8 @@
 import React from 'react'
-import UUID from 'node-uuid'
+import UUID from 'uuid'
 import { Paper } from 'material-ui'
 
 class Layout extends React.PureComponent {
-
   constructor(props) {
     super(props)
     this.uuid = UUID.v4()
@@ -34,7 +33,6 @@ class Layout extends React.PureComponent {
 }
 
 class Frame01 extends React.Component {
-
   constructor(props) {
     super(props)
   }
@@ -49,7 +47,6 @@ class Frame01 extends React.Component {
 }
 
 class Frame02 extends React.Component {
-
   constructor(props) {
     super(props)
   }
@@ -64,7 +61,6 @@ class Frame02 extends React.Component {
 }
 
 class Frame extends React.Component {
-
   constructor(props) {
     super(props)
 

@@ -33,7 +33,7 @@ class DriveRow extends React.PureComponent {
     super(props)
 
     this.rowTouchTap = (e) => {
-      e.preventDefault()  // important!
+      e.preventDefault() // important!
       e.stopPropagation()
 
       const type = e.type
@@ -163,14 +163,14 @@ class AdminDrives extends React.Component {
               {
                 publicDrives.map(drive =>
                   [<DriveRow
+                    key={drive.uuid}
                     drive={drive}
                     users={users}
                     updateDetail={updateDetail}
                     navTo={navTo}
                     showContextMenu={showContextMenu}
                   />,
-                    <Divider style={{ marginLeft: 104 }} />]
-                )
+                    <Divider style={{ marginLeft: 104 }} key={`${drive.uuid}Divider`} />])
               }
             </div>
             : this.renderNoDrive()

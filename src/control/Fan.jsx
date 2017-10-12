@@ -7,7 +7,6 @@ import HardwareKeyboardArrowDown from 'material-ui/svg-icons/hardware/keyboard-a
 const debug = Debug('component:control:Fan')
 
 class Fan extends React.Component {
-
   constructor(props) {
     super(props)
 
@@ -25,7 +24,7 @@ class Fan extends React.Component {
           this.setState({ fanScale })
         } else {
           // this.props.openSnackBar(`调节失败: ${err.message}`)
-          this.props.openSnackBar(`调节失败`)
+          this.props.openSnackBar('调节失败')
         }
         this.propsrefresh()
       })

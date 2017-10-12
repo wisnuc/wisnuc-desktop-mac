@@ -15,7 +15,9 @@ const phaseDate = (time) => {
   const year = a.getFullYear()
   const month = a.getMonth() + 1
   const date = a.getDate()
-  return `${year}年${month}月${date}日`
+  const hour = a.getHours()
+  const min = a.getMinutes()
+  return `${year}年${month}月${date}日 ${hour} : ${min}`
 }
 
 const phaseExifTime = (time) => {
@@ -58,11 +60,6 @@ const getResolution = (height, width) => {
 }
 
 class FileDetail extends React.PureComponent {
-
-  constructor(props) {
-    super(props)
-  }
-
   renderList(titles, values) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', flexDirection: 'column', width: '100%' }}>
@@ -90,7 +87,9 @@ class FileDetail extends React.PureComponent {
                     textOverflow: 'ellipsis',
                     whiteSpace: 'nowrap'
                   }}
-                > { values[index] }</div>
+                >
+                  { values[index] }
+                </div>
               </div>
             )
           })
@@ -142,7 +141,7 @@ class FileDetail extends React.PureComponent {
 
     const Values = [
       getPath(this.props.path),
-      prettysize(size, false, true, 3)
+      prettysize(size, false, true, 2)
     ]
 
     return (
@@ -226,7 +225,7 @@ class FileDetail extends React.PureComponent {
 
     const Values = [
       getType(detailFile.type, detailFile.name, metadata),
-      prettysize(detailFile.size, false, true, 3),
+      prettysize(detailFile.size, false, true, 2),
       getPath(path),
       phaseDate(detailFile.mtime),
       exifDateTime ? phaseExifTime(exifDateTime) : '',

@@ -1,6 +1,6 @@
 import React from 'react'
 import Debug from 'debug'
-import UUID from 'node-uuid'
+import UUID from 'uuid'
 import { CircularProgress, RaisedButton } from 'material-ui'
 import OpenIcon from 'material-ui/svg-icons/action/open-with'
 import DownloadIcon from 'material-ui/svg-icons/file/file-download'
@@ -181,7 +181,8 @@ class Preview extends React.Component {
     const isText = textExtension.findIndex(t => t === extension) > -1 && this.props.item.size < 1024 * 1024
     const isVideo = videoExtension.findIndex(t => t === extension) > -1
     const isAudio = audioExtension.findIndex(t => t === extension) > -1
-    const isPDF = extension === 'PDF' && global.config.platform !== 'win32'
+    // const isPDF = extension === 'PDF' && global.config.platform !== 'win32'
+    const isPDF = extension === 'PDF'
 
     if ((!isText && !isVideo && !isAudio && !isPDF) || this.props.item.size > 1024 * 1024 * 50) return this.renderOtherFiles()
 
@@ -238,7 +239,7 @@ class Preview extends React.Component {
                     onTouchTap={() => this.setState({ alert: false })}
                   />
                   <FlatButton
-                    label={'下载'}
+                    label="下载"
                     primary
                     onTouchTap={() => { this.props.download(); this.setState({ alert: false }) }}
                   />

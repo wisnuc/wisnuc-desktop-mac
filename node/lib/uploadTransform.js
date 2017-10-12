@@ -3,7 +3,6 @@ const fs = Promise.promisifyAll(require('fs'))
 const path = require('path')
 const childProcess = require('child_process')
 const debug = require('debug')('node:lib:uploadTransform:')
-const request = require('request')
 
 const Transform = require('./transform')
 const { readXattr, setXattr } = require('./xattr')
@@ -60,7 +59,7 @@ class Task {
       }
       const speed = this.completeSize - this.lastTimeSize
       this.speed = (this.lastSpeed + speed) / 2
-      this.lastSpeed = speed
+      this.lastSpeed = this.speed
       this.restTime = this.speed && (this.size - this.completeSize) / this.speed
       this.lastTimeSize = this.completeSize
       sendMsg()
@@ -170,6 +169,7 @@ class Task {
           if (i > -1) {
             this.pending[i].push(x)
           } else {
+            // debug('this.diff new array', x.entry, x.dirUUID, this.pending.length)
             this.pending.push([x])
           }
           this.schedule()
@@ -180,7 +180,7 @@ class Task {
         const diffAsync = async (local, driveUUID, dirUUID, task) => {
           const listNav = await serverGetAsync(`drives/${driveUUID}/dirs/${dirUUID}`)
           const remote = isCloud() ? listNav.data.entries : listNav.entries
-          // debug('listNav diff', listNav, remote)
+          // debug('listNav diff', local.length)
           if (!remote.length) return local
           const map = new Map() // compare hash and name
           const nameMap = new Map() // only same name
@@ -230,7 +230,7 @@ class Task {
                   task.completeSize += index * 1024 * 1024 * 1024
                 }
               }
-              
+
               /* continue to upload big file */
               debug('get files with same name but different hash\n', l.entry, mode, checkedName, remoteUUID, seed, l.parts)
 
@@ -252,7 +252,7 @@ class Task {
         const { driveUUID, dirUUID, task } = X[0]
         if (task.state !== 'uploading') task.state = 'diffing'
 
-        diffAsync(X, driveUUID, dirUUID, task).then(value => callback(null, value)).catch(e => {
+        diffAsync(X, driveUUID, dirUUID, task).then(value => callback(null, value)).catch((e) => {
           debug('diffAsync error', e)
           callback(e)
         })
@@ -261,7 +261,7 @@ class Task {
 
     this.upload = new Transform({
       name: 'upload',
-      concurrency: 1,
+      concurrency: 2,
       isBlocked: () => this.paused,
       push(X) {
         X.forEach((x) => {
@@ -271,7 +271,9 @@ class Task {
           } else {
             /* combine to one post */
             const { dirUUID, policy } = x
-            const i = this.pending.findIndex(p => !isCloud() && p.length < 10 && p[0].dirUUID === dirUUID && policy.mode === p[0].policy.mode)
+            /* upload N file within one post */
+            const i = this.pending.findIndex(p => !isCloud() && p.length < 1
+              && p[0].dirUUID === dirUUID && policy.mode === p[0].policy.mode)
             if (i > -1) {
               this.pending[i].push(x)
             } else {
@@ -282,7 +284,7 @@ class Task {
         this.schedule()
       },
       transform: (X, callback) => {
-        // debug('upload transform start', X.length, X[0].policy)
+        // debug('upload transform start', X.length)
 
         const Files = X.map((x) => {
           const { entry, parts, policy, task } = x

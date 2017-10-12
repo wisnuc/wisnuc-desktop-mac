@@ -10,7 +10,6 @@ import FlatButton from '../common/FlatButton'
 const debug = Debug('view:component:update')
 
 class FirmwareUpdate extends Base {
-
   constructor(ctx) {
     super(ctx)
 
@@ -88,7 +87,7 @@ class FirmwareUpdate extends Base {
   }
 
   detailIcon() {
-    return ListIcon 
+    return ListIcon
   }
 
   renderDetail({ style, openSnackBar }) {
@@ -106,7 +105,6 @@ class FirmwareUpdate extends Base {
     )
   }
 
-  /** renderers **/
   renderContent({ openSnackBar, toggleDetail }) {
     return (
       <div style={{ margin: 24 }}>

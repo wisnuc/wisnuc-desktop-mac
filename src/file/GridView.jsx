@@ -19,20 +19,21 @@ import { ShareDisk } from '../common/Svg'
 
 const debug = Debug('component:file:GridView:')
 
-class Row extends React.PureComponent {
+class Row extends React.Component {
   constructor(props) {
     super(props)
 
     this.headers = [
       { title: '名称', up: 'nameUp', down: 'nameDown' },
       { title: '修改时间', up: 'timeUp', down: 'timeDown' },
+      { title: '拍摄时间', up: 'takenUp', down: 'takenDown' },
       { title: '文件大小', up: 'sizeUp', down: 'sizeDown' }
     ]
 
-    this.header = this.headers.find(header => (header.up === this.props.sortType) || (header.down === this.props.sortType)) || this.headers[0]
+    this.header = this.headers.find(header => (header.up === this.props.sortType) ||
+      (header.down === this.props.sortType)) || this.headers[0]
 
     this.state = {
-      contextMenuOpen: false,
       type: this.header.title
     }
 
@@ -44,6 +45,9 @@ class Row extends React.PureComponent {
             break
           case '文件大小':
             this.props.changeSortType('sizeUp')
+            break
+          case '拍摄时间':
+            this.props.changeSortType('takenUp')
             break
           default:
             this.props.changeSortType('nameUp')
@@ -109,6 +113,12 @@ class Row extends React.PureComponent {
                           leftIcon={this.state.type === '修改时间' ? <CheckIcon /> : <div />}
                           primaryText="修改时间"
                           onTouchTap={() => this.handleChange('修改时间')}
+                        />
+                        <MenuItem
+                          style={{ fontSize: 13 }}
+                          leftIcon={this.state.type === '拍摄时间' ? <CheckIcon /> : <div />}
+                          primaryText="拍摄时间"
+                          onTouchTap={() => this.handleChange('拍摄时间')}
                         />
                         <MenuItem
                           style={{ fontSize: 13 }}
@@ -313,7 +323,7 @@ class GridView extends React.Component {
             const gridInfo = calcGridInfo(height, width, this.props.entries)
             const { mapData, allHeight, rowHeightSum, indexHeightSum, maxScrollTop } = gridInfo
             // debug('gridInfo', allHeight, this.props.entries.length)
-            
+
             /* To get row index of scrollToRow */
             this.mapDate = mapData
 

@@ -1,7 +1,8 @@
 import fs from 'fs'
 import path from 'path'
 import Debug from 'debug'
-import UUID from 'node-uuid'
+import rimraf from 'rimraf'
+import UUID from 'uuid'
 import request from 'superagent'
 import { ipcMain } from 'electron'
 import store from './store'
@@ -11,6 +12,11 @@ Promise.promisifyAll(fs) // babel would transform Promise to bluebird
 const debug = Debug('node:lib:server')
 const getTmpPath = () => store.getState().config.tmpPath
 const getTmpTransPath = () => store.getState().config.tmpTransPath
+
+export const clearTmpTrans = () => {
+  // console.log('clearTmpTrans', `${getTmpTransPath()}/*`)
+  rimraf(`${getTmpTransPath()}/*`, e => e && console.log('clearTmpTrans error', e))
+}
 
 /* init request */
 let stationID = null
@@ -68,6 +74,7 @@ get json data from server
 */
 
 export const serverGet = (endpoint, callback) => {
+  // debug('serverGet', endpoint)
   aget(endpoint).end((err, res) => {
     if (err) return callback(Object.assign({}, err, { response: err.response && err.response.body }))
     if (res.statusCode !== 200 && res.statusCode !== 206) {
@@ -249,8 +256,9 @@ export class DownloadFile {
       .on('error', error => this.finish(error))
       .on('response', (res) => {
         if (res.status !== 200 && res.status !== 206) {
+          debug('download http status code not 200', res.error)
           const e = new Error('http status code not 200')
-          e.code = 'EHTTPSTATUS'
+          e.error = res.error
           e.status = res.status
           this.finish(e)
         }
