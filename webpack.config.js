@@ -11,7 +11,7 @@ module.exports = {
     path: path.join(__dirname, 'public'),
     filename: 'bundle.js'
   },
-  target: 'electron-renderer',
+  target: 'electron',
   devtool: 'eval-source-map',
   entry: [
     'webpack/hot/poll?1000',
@@ -24,6 +24,7 @@ module.exports = {
       {
         test: /\.(js|jsx)$/,
         exclude: /node_modules/,
+        // use: 'babel-loader'
         use: ['react-hot-loader/webpack', 'babel-loader']
       },
       {

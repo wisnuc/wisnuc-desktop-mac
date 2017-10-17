@@ -61,9 +61,6 @@ class WechatLogin extends React.Component {
     super(props)
 
     this.state = {
-      wxCode: '',
-      local: true,
-      hello: true,
       error: '', // '', 'net', 'wisnuc'
       wechatLogin: '', // '', 'progress', 'authorization', 'getingList', 'success', 'lastDevice', 'list', 'fail'
       count: 3,
@@ -81,26 +78,31 @@ class WechatLogin extends React.Component {
       let lanip = null
       for (let i = 0; i < ips.length; i++) {
         try {
-          const info = await this.props.selectedDevice.requestAsync('info', { ip: ips[i] })
+          const res = await this.props.selectedDevice.pureRequestAsync('info', { ip: ips[i] })
+          const info = res.body
           if (info && info.id === stationID) {
-            lanip = ips[0]
+            lanip = ips[i]
             break
           }
         } catch (e) {
           debug('this.autologinAsync can not connect lanip', ips[i], e)
         }
       }
-      // lanip = null
+
+      // lanip = null // force to connect cloud
+
+      const token = this.state.wxData.token
+      const guid = this.state.wxData.user.id
+
+      const res = await this.props.selectedDevice.pureRequestAsync('cloudUsers', { stationID, token })
+      const user = res && res.body.data.find(u => u.global && u.global.id === guid)
+      if (!user) throw Error('no user')
+
       if (lanip) {
-        const token = this.state.wxData.token
-        const guid = this.state.wxData.user.id
-
-        const res = await this.props.selectedDevice.requestAsync('cloudUsers', { stationID, token })
-        const user = res && res.data.find(u => u.global && u.global.id === guid)
-        if (!user) throw Error('no user')
-        const localToken = await this.props.selectedDevice.requestAsync('localTokenByCloud', { stationID, token })
-
-        debug('this.props.selectedDevice, before', this.props.selectedDevice)
+        debug('this.props.selectedDevice, with lanip', this.props.selectedDevice, '\nlanip', lanip)
+        const response = await this.props.selectedDevice.pureRequestAsync('localTokenByCloud', { stationID, token })
+        const localToken = response.body
+        this.props.selectDevice({ address: lanip, domain: 'local' })
         Object.assign(this.props.selectedDevice, {
           token: {
             isFulfilled: () => true,
@@ -109,33 +111,18 @@ class WechatLogin extends React.Component {
           },
           mdev: { address: lanip, domain: 'local' }
         })
-        this.props.assignDevice({
-          token: {
-            isFulfilled: () => true,
-            ctx: user,
-            data: localToken.data
-          },
-          mdev: { address: lanip, domain: 'local' }
-        })
-        debug('this.props.selectedDevice, after', this.props.selectedDevice)
         this.props.ipcRenderer.send('WECHAT_LOGIN', user.uuid, { weChat: this.state.wxData.user })
         this.done('LOGIN', this.props.selectedDevice, user)
       } else {
-        const token = this.state.wxData.token
-        const guid = this.state.wxData.user.id
-
-        const res = await this.props.selectedDevice.requestAsync('cloudUsers', { stationID, token })
-        const user = res && res.data.find(u => u.global && u.global.id === guid)
-        if (!user) throw Error('no user')
+        debug('no available lanip', this.props.selectedDevice)
         Object.assign(this.props.selectedDevice, {
           token: {
             isFulfilled: () => true,
             ctx: user,
             data: { token, stationID }
           },
-          mdev: { address: 'http://www.siyouqun.org', domain: 'remote' }
+          mdev: { address: 'http://www.siyouqun.org', domain: 'remote', lanip: ips[0] }
         })
-        debug('this.autologinAsync this.props.selectedDevice', this.props.selectedDevice)
         this.props.ipcRenderer.send('WECHAT_LOGIN', user.uuid, { weChat: this.state.wxData.user })
         return this.done('LOGIN', this.props.selectedDevice, user)
       }
@@ -145,7 +132,7 @@ class WechatLogin extends React.Component {
       if (this.out) return
       this.setState({ logining: true })
       this.autologinAsync().catch((e) => {
-        debug('this.autologin', e)
+        debug('this.autologin error', e)
         this.setState({ wechatLogin: 'fail' })
       })
     }
@@ -196,7 +183,6 @@ class WechatLogin extends React.Component {
     this.intiWxScript()
 
     this.initWXLogin = () => {
-      // debug('this.initWXLogin start!')
       this.setState({ wechatLogin: '', error: '' }, () => {
         this.WxLogin({
           id: 'login_container',
@@ -210,30 +196,39 @@ class WechatLogin extends React.Component {
         })
         const f = document.getElementById('login_container')
         const d = this.wxiframe
-        // debug('this.initWXLogin this.wxiframe', this.wxiframe, this.state)
+
         if (f) f.innerHTML = ''
         if (!window.navigator.onLine) {
           this.setState({ error: 'net' })
         } else {
+          d.onload = () => {
+            if (!d.contentDocument.head || !d.contentDocument.title) this.setState({ error: 'wisnuc' })
+            // else if (this.weChatLoadingRef) this.weChatLoadingRef.style.display = 'none'
+          }
           f.appendChild(d)
+          if (this.weChatLoadingRef) this.weChatLoadingRef.style.display = 'none'
         }
       })
     }
 
     this.getStations = (guid, token) => {
-      this.props.selectedDevice.request('getStations', { guid, token }, (err, res) => {
+      this.props.selectedDevice.pureRequest('getStations', { guid, token }, (err, res) => {
         if (err) {
           debug('this.getStations error', err)
           return this.setState({ wechatLogin: 'fail' })
         }
-        debug('this.getStations success', res)
-        const lists = res.data
-        const index = lists.findIndex(l => l.isOnline)
-        if (index > -1) {
-          debug('lastDevice', lists[index])
+        debug('this.getStations success', res.body)
+        const lists = res.body.data
+        const available = lists.filter(l => l.isOnline)
+        if (available && available.length) {
+          const lastDevice = global.config.global.lastDevice
+          const lastAddress = lastDevice && (lastDevice.lanip || lastDevice.address)
+          let index = available.findIndex(l => l.LANIP[0] === lastAddress)
+          if (index < 0) index = 0
+          debug('lastDevice', available[index])
           this.setState({ lists })
           setTimeout(() => this.setState({ wechatLogin: 'success', count: 3 }), 500)
-          setTimeout(() => this.setState({ wechatLogin: 'lastDevice', lastDevice: lists[index] }, this.countDown), 1000)
+          setTimeout(() => this.setState({ wechatLogin: 'lastDevice', lastDevice: available[index] }, this.countDown), 1000)
         } else return this.setState({ wechatLogin: 'fail' })
       })
     }
@@ -246,16 +241,15 @@ class WechatLogin extends React.Component {
       clearInterval(this.interval)
 
       this.setState({ wechatLogin: 'authorization' })
-      this.props.selectedDevice.request('wxToken', { code }, (err, res) => {
+      this.props.selectedDevice.pureRequest('wxToken', { code }, (err, res) => {
         if (err) {
           debug('this.getWXCode', code, err)
           this.setState({ wechatLogin: 'fail' })
         } else {
-          debug('got token!!', res)
-          // return console.log(wxLogin)
-          if (res.data) {
-            this.setState({ wxData: res.data, wechatLogin: 'getingList' })
-            this.getStations(res.data.user.id, res.data.token)
+          debug('got token!!', res.body)
+          if (res.body && res.body.data) {
+            this.setState({ wxData: res.body.data, wechatLogin: 'getingList' })
+            this.getStations(res.body.data.user.id, res.body.data.token)
           } else {
             debug('no wechat Data')
             this.setState({ wechatLogin: 'fail' })
@@ -297,12 +291,29 @@ class WechatLogin extends React.Component {
   }
 
   renderCard() {
-    debug('renderCard', this.state.error)
     return (
       <div style={{ zIndex: 100 }}>
         {
           !this.state.error ?
             <div style={{ width: 332, height: 492, padding: 24, position: 'relative', backgroundColor: '#FAFAFA' }}>
+              {/* CircularProgress */}
+              <div
+                ref={ref => (this.weChatLoadingRef = ref)}
+                key="weChatLoadingRef"
+                style={{
+                  position: 'absolute',
+                  top: 108,
+                  left: 0,
+                  height: 300,
+                  width: '100%',
+                  backgroundColor: '#FAFAFA',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                <CircularProgress size={64} thickness={5} />
+              </div>
               <div style={{ height: 42 }} />
               <div
                 style={{ height: 406, width: 300, margin: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
@@ -340,7 +351,7 @@ class WechatLogin extends React.Component {
               </div>
               <div style={{ height: 24 }} />
               <div style={{ textAlign: 'center', color: 'rgba(0,0,0,0.87)', fontSize: 20 }}>
-                { this.state.error === 'net' ? '网络连接已断开' : '云服务已断开' }
+                { this.state.error === 'net' ? '网络连接已断开' : '无法连接到云服务' }
               </div>
               <div style={{ height: 24 }} />
               <div style={{ textAlign: 'center', color: 'rgba(0,0,0,0.54)', fontSize: 20 }}>
@@ -353,7 +364,7 @@ class WechatLogin extends React.Component {
   }
 
   render() {
-    debug('render wechat login', this.state, this.props)
+    // debug('render wechat login', this.state, this.props)
     if (!this.state.wechatLogin) return this.renderCard()
     let text = ''
     const wcl = this.state.wechatLogin
@@ -464,35 +475,39 @@ class WechatLogin extends React.Component {
                   <div>
                     <div style={{ height: 8 }} />
                     <div style={{ fontSize: 16, lineHeight: '24px', color: 'rgba(0,0,0,0.87)' }}> { '闻上盒子' } </div>
-                    <div style={{ fontSize: 14, lineHeight: '20px', color: 'rgba(0,0,0,0.54)' }}> { '' } </div>
-                    <div style={{ fontSize: 14, lineHeight: '20px', color: 'rgba(0,0,0,0.54)' }}> { '远程访问' } </div>
+                    <div style={{ fontSize: 14, lineHeight: '20px', color: 'rgba(0,0,0,0.54)' }}>
+                      { this.state.lastDevice.LANIP }
+                    </div>
+                    <div style={{ fontSize: 14, lineHeight: '20px', color: 'rgba(0,0,0,0.54)' }}> { '微信登录' } </div>
+
                   </div>
                 </div>
                 <div style={{ height: 8 }} />
               </div>
               <Divider />
               <div style={{ height: 32 }} />
-              <div
-                style={{
-                  height: 80,
-                  fontSize: 16,
-                  fontWeight: 500,
-                  color: 'rgba(0,0,0,0.87)',
-                  textAlign: 'center'
-                }}
-              >
-                <span style={{ fontSize: 34 }}> { this.state.count } </span> 秒后将登录
-              </div>
-              <div style={{ display: 'flex' }}>
-                <div style={{ flexGrow: 1 }} />
-                <FlatButton
-                  label="可登录设备列表"
-                  labelPosition="before"
-                  labelStyle={{ color: '#424242', fontWeight: 500 }}
-                  onTouchTap={this.enterList}
-                  icon={<RightIcon color="#424242" />}
-                />
-              </div>
+              {
+                this.state.logining ?
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: 16 }}>
+                    <CircularProgress size={48} thickness={3} />
+                  </div>
+                  :
+                  <div>
+                    <div style={{ height: 80, fontSize: 16, fontWeight: 500, color: 'rgba(0,0,0,0.87)', textAlign: 'center' }} >
+                      <span style={{ fontSize: 34 }}> { this.state.count } </span> 秒后将登录
+                    </div>
+                    <div style={{ display: 'flex' }}>
+                      <div style={{ flexGrow: 1 }} />
+                      <FlatButton
+                        label="可登录设备列表"
+                        labelPosition="before"
+                        labelStyle={{ color: '#424242', fontWeight: 500 }}
+                        onTouchTap={this.enterList}
+                        icon={<RightIcon color="#424242" />}
+                      />
+                    </div>
+                  </div>
+              }
             </div>
             : wcl === 'list'
             ? <div>
