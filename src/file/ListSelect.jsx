@@ -14,7 +14,7 @@ class ListSelect extends EventEmitter {
       rowColor: this.rowColor.bind(this),
       rowLeading: this.rowLeading.bind(this),
       rowCheck: this.rowCheck.bind(this),
-      addByRange: this.addByRange.bind(this)
+      addByArray: this.addByArray.bind(this)
     }
   }
 
@@ -37,12 +37,19 @@ class ListSelect extends EventEmitter {
     return this.state
   }
 
-  addByRange(start, end) {
-    const arr = []
-    for (let i = start; i <= end; i++) {
-      arr.push(i)
-    }
-    this.setState({ selected: arr })
+  addByArray(array, session) {
+    // console.log('addByArray', array, session, this.state.ctrl, this.state.shift)
+    if (this.state.shift) {
+      const set = new Set([...array, ...this.state.selected])
+      this.setState({ selected: [...set] })
+    } else if (this.state.ctrl && session) {
+      const isSameBox = this.session === session
+      this.session = session
+      if (!isSameBox) this.preArray = this.state.selected
+      const set = new Set([...array, ...this.preArray])
+      array.forEach(i => this.preArray.includes(i) && set.delete(i))
+      this.setState({ selected: [...set] })
+    } else this.setState({ selected: array })
   }
 
   keyEvent(ctrl, shift) {
@@ -69,11 +76,7 @@ class ListSelect extends EventEmitter {
   // toggle select and (sort of) specified
   ctrlLeftClick(index) {
     if (index === -1) { // click outside
-      this.setState({
-        selected: [],
-        specified: -1,
-        hover: -1
-      })
+      // this.setState({ selected: [], specified: -1, hover: -1 })
     } else {
       const idx = this.state.selected.indexOf(index)
       if (idx !== -1) {
@@ -95,8 +98,9 @@ class ListSelect extends EventEmitter {
   shiftLeftClick(index) {
     const { specified, selected } = this.state
 
-    if (index === -1) // click outside
-    { this.setState({ selected: [], specified: -1, hover: -1 }) } else if (specified === -1) {
+    if (index === -1) { // click outside
+      // this.setState({ selected: [], specified: -1, hover: -1 })
+    } else if (specified === -1) {
       if (!selected.includes(index)) {
         this.setState({ selected: [...selected, index], specified: index })
       } else {

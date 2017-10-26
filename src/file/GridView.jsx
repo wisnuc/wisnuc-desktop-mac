@@ -153,6 +153,7 @@ class Row extends React.Component {
               return (
                 <div
                   style={{
+                    position: 'relative',
                     width: 180,
                     height: entry.type === 'file' ? 184 : 48,
                     marginRight: 20,
@@ -167,7 +168,10 @@ class Row extends React.Component {
                   {/* preview or icon */}
                   {
                     entry.type === 'file' &&
-                      <div style={{ height: 136, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                      <div
+                        style={{ height: 136, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}
+                        draggable={false}
+                      >
                         {
                           (rowSum < 500 || !isScrolling) && entry.metadata
                           ? <Thumb
@@ -177,6 +181,22 @@ class Row extends React.Component {
                             width={180}
                           />
                           : renderFileIcon(entry.name, entry.metadata, 64)
+                        }
+
+                        {/* overlay */}
+                        {
+                          selected &&
+                            <div
+                              style={{
+                                position: 'absolute',
+                                width: 180,
+                                height: 136,
+                                top: 0,
+                                left: 0,
+                                opacity: 0.38,
+                                backgroundColor: primaryColor
+                              }}
+                            />
                         }
                       </div>
                   }
@@ -232,11 +252,22 @@ class Row extends React.Component {
 class GridView extends React.Component {
   constructor(props) {
     super(props)
-    this.state = {
-      type: ''
-    }
 
     this.scrollToRow = index => this.ListRef.scrollToRow(index)
+
+    this.getStatus = () => {
+      const list = document.getElementsByClassName('ReactVirtualized__List')[0]
+      return ({
+        mapData: this.mapData.reduce((acc, val, index) => {
+          val.entries.forEach(() => acc.push(index))
+          return acc
+        }, []),
+        allHeight: this.allHeight, // const rowHeight = ({ index }) => allHeight[index]
+        indexHeightSum: this.indexHeightSum,
+        scrollTop: parseInt(list.scrollTop, 10) || 0,
+        cellWidth: 200
+      })
+    }
   }
 
   componentDidUpdate() {
@@ -317,6 +348,19 @@ class GridView extends React.Component {
     if (!this.props.entries || this.props.entries.length === 0) return (<div />)
     return (
       <div style={{ width: '100%', height: '100%' }} onDrop={this.props.drop}>
+        <div
+          style={{
+            position: 'absolute',
+            top: -8,
+            left: 0,
+            width: '100%',
+            height: 32,
+            zIndex: 100,
+            backgroundColor: '#FFFFFF'
+          }}
+          onMouseUp={e => this.props.selectEnd(e)}
+          onMouseMove={e => this.props.selectGrid(e, this.getStatus())}
+        />
         <div style={{ height: 24 }} />
         <AutoSizer key={this.props.entries && this.props.entries[0] && this.props.entries[0].uuid}>
           {({ height, width }) => {
@@ -325,7 +369,8 @@ class GridView extends React.Component {
             // debug('gridInfo', allHeight, this.props.entries.length)
 
             /* To get row index of scrollToRow */
-            this.mapDate = mapData
+            this.mapData = mapData
+            this.allHeight = allHeight
 
             const estimatedRowSize = rowHeightSum / allHeight.length
             const rowHeight = ({ index }) => allHeight[index]
@@ -346,7 +391,13 @@ class GridView extends React.Component {
             )
 
             return (
-              <div onTouchTap={e => this.props.onRowTouchTap(e, -1)}>
+              <div
+                onMouseDown={e => this.props.selectStart(e)}
+                onMouseUp={e => this.props.selectEnd(e)}
+                onMouseMove={e => this.props.selectGrid(e, this.getStatus())}
+                onMouseLeave={e => 0 && this.props.selectEnd(e)}
+                onTouchTap={e => this.props.onRowTouchTap(e, -1)}
+              >
                 <List
                   ref={ref => (this.ListRef = ref)}
                   height={height - 24}
@@ -355,6 +406,7 @@ class GridView extends React.Component {
                   rowHeight={rowHeight}
                   rowRenderer={rowRenderer}
                   rowCount={gridInfo.mapData.length}
+                  onScroll={({ scrollTop }) => this.props.onScroll(scrollTop)}
                   overscanRowCount={10}
                   style={{ outline: 'none' }}
                 />

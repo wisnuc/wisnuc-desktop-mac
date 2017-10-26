@@ -97,7 +97,7 @@ class Row extends React.PureComponent {
           <div style={{ flex: '0 0 8px' }} />
 
           {/* file type may be: folder, public, directory, file, unsupported */}
-          <div style={{ flex: '0 0 48px', display: 'flex', alignItems: 'center' }}>
+          <div style={{ flex: '0 0 48px', display: 'flex', alignItems: 'center' }} >
             <Avatar style={{ backgroundColor: 'white' }}>
               {
                 entry.type === 'directory'
@@ -111,7 +111,10 @@ class Row extends React.PureComponent {
             </Avatar>
           </div>
 
-          <div style={{ flex: '0 0 390px', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
+          <div
+            style={{ flex: '0 0 390px', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}
+            onMouseDown={e => 0 && e.stopPropagation()}
+          >
             { entry.name }
           </div>
 
@@ -176,6 +179,11 @@ class RenderListByRow extends React.Component {
       if (!this.state.open && event && event.preventDefault) event.preventDefault()
       this.setState({ open: event !== 'clickAway' && !this.state.open, anchorEl: event.currentTarget })
     }
+
+    this.getScrollToPosition = () => {
+      const list = document.getElementsByClassName('ReactVirtualized__List')[0]
+      return (parseInt(list.scrollTop, 10) || 0)
+    }
   }
 
   componentDidUpdate() {
@@ -236,7 +244,7 @@ class RenderListByRow extends React.Component {
     // debug('renderPopoverHeader this.props', this.props, sortType, h, isSelected)
 
     return (
-      <div style={{ display: 'flex', alignItems: 'center ', width: 160, marginLeft: -8, marginTop: 2 }}>
+      <div style={{ display: 'flex', alignItems: 'center ', width: 168, marginLeft: -8, marginTop: 2 }}>
         <FlatButton
           label={h.title}
           labelStyle={{ fontSize: 14, color: 'rgba(0,0,0,0.54)' }}
@@ -296,7 +304,21 @@ class RenderListByRow extends React.Component {
     return (
       <div style={{ width: '100%', height: '100%' }} onDrop={this.props.drop}>
         {/* header */}
-        <div style={{ width: '100%', height: 40, display: 'flex', alignItems: 'center' }}>
+        <div
+          style={{
+            width: '100%',
+            height: 48,
+            display: 'flex',
+            alignItems: 'center',
+            position: 'absolute',
+            zIndex: 100,
+            backgroundColor: '#FFFFFF',
+            paddingTop: 8,
+            top: -8
+          }}
+          onMouseUp={e => this.props.selectEnd(e)}
+          onMouseMove={e => this.props.selectRow(e, this.getScrollToPosition())}
+        >
           <div style={{ flex: '0 0 104px' }} />
           { this.renderHeader({ title: '名称', width: 494, up: 'nameUp', down: 'nameDown' }) }
           { this.renderPopoverHeader() }
@@ -304,7 +326,7 @@ class RenderListByRow extends React.Component {
           <div style={{ flexGrow: 1 }} />
         </div>
 
-        <div style={{ height: 8 }} />
+        <div style={{ height: 48 }} />
 
         {/* list content */}
         <div style={{ width: '100%', height: 'calc(100% - 48px)' }}>
@@ -312,13 +334,21 @@ class RenderListByRow extends React.Component {
             this.props.entries.length !== 0 &&
             <AutoSizer>
               {({ height, width }) => (
-                <div onTouchTap={e => this.props.onRowTouchTap(e, -1)}>
+                <div
+                  onMouseDown={e => this.props.selectStart(e)}
+                  onMouseUp={e => this.props.selectEnd(e)}
+                  onMouseMove={e => this.props.selectRow(e, this.getScrollToPosition())}
+                  onMouseLeave={e => 0 && this.props.selectEnd(e)}
+                  draggable={false}
+                  onTouchTap={e => this.props.onRowTouchTap(e, -1)}
+                >
                   <List
                     ref={ref => (this.ListRef = ref)}
                     style={{ outline: 'none' }}
                     height={height}
                     width={width}
                     rowCount={this.props.select.size}
+                    onScroll={({ scrollTop }) => this.props.onScroll(scrollTop)}
                     rowHeight={48}
                     rowRenderer={rowRenderer}
                   />

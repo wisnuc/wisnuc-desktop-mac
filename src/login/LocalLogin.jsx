@@ -188,7 +188,7 @@ class Login extends StateUp(React.Component) {
       this.setState({ hexpand: false })
       await Promise.delay(duration)
       if (pure) {
-        this.setState({ expanded: false })
+        this.setState({ expanded: false, pin: undefined })
       } else {
         this.setState({ expanded: false, compact: false, dim: false, pin: undefined })
       }
@@ -310,7 +310,7 @@ class Login extends StateUp(React.Component) {
     }
 
     const status = this.props.selectedDevice.systemStatus()
-    debug('footer', status, this.props.selectedDevice, this.state)
+    // debug('footer', status, this.props.selectedDevice, this.state)
 
     if (this.state.pin === 'initWizard' || status === 'uninitialized') {
       const { hexpand, vexpand, expanded } = this.state
@@ -390,7 +390,7 @@ class Login extends StateUp(React.Component) {
       const { hexpand, vexpand, expanded } = this.state
 
       if (this.state.maint) {
-        debug('LocalLogin props', this.props)
+        // debug('LocalLogin props', this.props)
         return (
           <MaintGuide
             toggleMaint={this.toggleMaint}
@@ -478,7 +478,7 @@ class Login extends StateUp(React.Component) {
 
   render() {
     const { mdns, selectedDevice } = this.props
-    debug('Local Login render', this.props)
+    // debug('Local Login render', this.props)
 
     let cardProps
     let displayProps
@@ -494,6 +494,7 @@ class Login extends StateUp(React.Component) {
       displayProps = {
         toggle: this.state.compact,
         device: selectedDevice.mdev,
+        name: selectedDevice.info && selectedDevice.info.data && selectedDevice.info.data.name,
         ws215i: selectedDevice.device && selectedDevice.device.data && !!selectedDevice.device.data.ws215i,
         backgroundColor: '#FAFAFA',
         onNavPrev: (!selectedDevice || (selectedDevice && !selectedDevice.mdev.address) || this.isFirst()) ? null : this.navPrevBound,
