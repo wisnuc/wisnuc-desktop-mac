@@ -138,8 +138,10 @@ class Task {
               entry.finished = true
             } else if (localFiles.includes(`${entry.newName}.download`)) {
               const stat = await fs.lstatAsync(entry.tmpPath)
-              entry.seek = stat.size
-              task.completeSize += entry.seek
+              if (stat.size < entry.size) {
+                entry.seek = stat.size
+                task.completeSize += entry.seek
+              }
             }
           }
           return ({ entries, downloadPath, dirUUID, driveUUID, task })
@@ -151,7 +153,7 @@ class Task {
 
     this.download = new Transform({
       name: 'download',
-      concurrency: 2,
+      concurrency: 4,
       isBlocked: () => this.paused,
       push(X) {
         const { entries, downloadPath, dirUUID, driveUUID, task } = X

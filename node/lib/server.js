@@ -250,6 +250,7 @@ export class DownloadFile {
 
   download() {
     this.handle = adownload(this.endpoint)
+    if (this.size && this.size === this.seek) return setImmediate(() => this.finish(null))
     if (this.size) this.handle.set('Range', `bytes=${this.seek}-`)
     this.handle
       .query(this.qs)
@@ -269,7 +270,6 @@ export class DownloadFile {
 
   abort() {
     if (this.finished) return
-    debug('download abort', this.fileName)
     this.finish(null)
     if (this.handle) this.handle.abort()
   }
@@ -277,7 +277,6 @@ export class DownloadFile {
   finish(error) {
     if (this.finished) return
     if (error) {
-      // debug('download finish, error:', error.response && error.response.body)
       error.response = error.response && error.response.body
     }
     this.callback(error)
