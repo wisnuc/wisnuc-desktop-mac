@@ -18,7 +18,7 @@ const getName = (name, nameSpace) => {
     if (!extension || extension === name) {
       checkedName = `${name}(${i})`
     } else {
-      checkedName = `${path.parse(name).name}(${i}).${extension}`
+      checkedName = `${path.parse(name).name}(${i})${extension}`
     }
   }
   return checkedName
@@ -122,7 +122,7 @@ class Task {
       concurrency: 2,
       push(x) {
         const { files, dirUUID, driveUUID, task } = x
-        // debug('this.hash push', { files, dirUUID, driveUUID })
+        debug('this.hash push', { files, dirUUID, driveUUID })
         files.forEach((f) => {
           if (f.stat.isDirectory()) {
             this.outs.forEach(t => t.push(Object.assign({}, f, { dirUUID, driveUUID, task, type: 'directory' })))
@@ -133,12 +133,12 @@ class Task {
         })
       },
       transform: (x, callback) => {
-        const { entry, dirUUID, driveUUID, stat, policy, task } = x
+        const { entry, dirUUID, driveUUID, stat, policy, retry, task } = x
         if (task.state !== 'uploading' && task.state !== 'diffing') task.state = 'hashing'
         const hashStart = (new Date()).getTime()
         readXattr(entry, (error, attr) => {
-          if (!error && attr && attr.parts) {
-            callback(null, { entry, dirUUID, driveUUID, parts: attr.parts, type: 'file', stat, policy, task })
+          if (!error && attr && attr.parts && retry === undefined) {
+            callback(null, { entry, dirUUID, driveUUID, parts: attr.parts, type: 'file', stat, policy, retry, task })
             return
           }
           const options = {
@@ -150,7 +150,9 @@ class Task {
           child.on('message', (result) => {
             setXattr(entry, result, (err, xattr) => {
               debug('hash finished', ((new Date()).getTime() - hashStart) / 1000)
-              callback(null, { entry, dirUUID, driveUUID, parts: xattr && xattr.parts, type: 'file', stat, policy, task })
+              const p = xattr && xattr.parts
+              const r = retry ? retry + 1 : retry
+              callback(null, { entry, dirUUID, driveUUID, parts: p, type: 'file', stat, policy, retry: r, task })
             })
           })
           child.on('error', callback)
@@ -162,7 +164,7 @@ class Task {
       name: 'diff',
       concurrency: 4,
       push(x) {
-        if (x.type === 'directory' || !(x.policy.mode === 'merge' || x.policy.mode === 'overwrite') && x.task.isNew) {
+        if (x.type === 'directory' || !(x.policy.mode === 'merge' || x.policy.mode === 'overwrite') && x.task.isNew && !x.retry) {
           this.outs.forEach(t => t.push([x]))
         } else {
           /* combine to one post */
@@ -274,7 +276,7 @@ class Task {
             /* combine to one post */
             const { dirUUID, policy } = x
             /* upload N file within one post */
-            const i = this.pending.findIndex(p => !isCloud() && p.length < 64
+            const i = this.pending.findIndex(p => !isCloud() && p.length < 8
               && p[0].dirUUID === dirUUID && policy.mode === p[0].policy.mode)
             if (i > -1) {
               this.pending[i].push(x)
@@ -288,10 +290,12 @@ class Task {
       transform: (X, callback) => {
         // debug('upload transform start', X.length)
 
+        let uploadedSum = 0
+        let countSum = 0
         const Files = X.map((x) => {
-          const { entry, parts, policy, task } = x
+          const { entry, stat, parts, policy, retry, task } = x
           const name = policy.mode === 'rename' ? policy.checkedName : path.parse(entry).base
-          const readStreams = parts.map(part => fs.createReadStream(entry, { start: part.start, end: part.end, autoClose: true }))
+          const readStreams = parts.map(p => fs.createReadStream(entry, { start: p.start, end: Math.max(p.end, 0), autoClose: true }))
           for (let i = 0; i < parts.length; i++) {
             const rs = readStreams[i]
             let lastTimeSize = 0
@@ -301,24 +305,27 @@ class Task {
               if (task.paused) return clearInterval(countReadHandle)
               const gap = rs.bytesRead - lastTimeSize
               task.completeSize += gap
+              uploadedSum += gap
               lastTimeSize = rs.bytesRead
-              // debug('task.completeSize', task.completeSize)
             }
-            // rs.on('data', (c) => {count += c.length;debug('data',count)})
             rs.on('open', () => {
-              countReadHandle = setInterval(countRead, 100)
+              countReadHandle = setInterval(countRead, 200)
             })
             rs.on('end', () => {
               clearInterval(countReadHandle)
               const gap = rs.bytesRead - lastTimeSize
               task.completeSize += gap
+              uploadedSum += gap
               lastTimeSize = rs.bytesRead
               if (task.paused) return
-              if (i === parts.length - 1) task.finishCount += 1
+              if (i === parts.length - 1) {
+                task.finishCount += 1
+                countSum += 1
+              }
               sendMsg()
             })
           }
-          return ({ entry, name, parts, readStreams, policy })
+          return ({ entry, stat, name, parts, readStreams, retry, policy })
         })
 
         const { driveUUID, dirUUID, task } = X[0]
@@ -326,7 +333,13 @@ class Task {
         const handle = new UploadMultipleFiles(driveUUID, dirUUID, Files, (error) => {
           task.reqHandles.splice(task.reqHandles.indexOf(handle), 1)
           if (error) {
-            task.finishCount -= 1
+            debug('UploadMultipleFiles handle callbak error', error)
+            task.finishCount -= countSum
+            task.completeSize -= uploadedSum
+            X.forEach((x) => {
+              if (x.retry > -1) x.retry += 1
+              else x.retry = 0
+            })
           }
           callback(error, { driveUUID, dirUUID, Files, task })
         })
@@ -352,6 +365,24 @@ class Task {
     })
 
     this.readDir.on('step', () => {
+      /* retry, if upload error && response code ∈ [400, 500) && retry times < 2 */
+
+      for (let i = this.upload.failed.length - 1; i > -1; i--) {
+        const X = this.upload.failed[i]
+        const index = Array.isArray(X) && X.findIndex((x) => {
+          return x.retry < 1 && (x.error && x.error.response &&
+            x.error.response.findIndex(r => r.error && r.error.status < 500 && r.error.code !== 'EEXIST') > -1)
+        })
+        if (index > -1) {
+          debug('X retry', X[0].retry, X[0].error)
+          const files = []
+          X.forEach(x => files.push({ entry: x.entry, stat: x.stat, policy: x.policy, retry: x.retry }))
+          const { driveUUID, dirUUID, task } = X[0]
+          this.hash.push({ files, driveUUID, dirUUID, task })
+          this.upload.failed.splice(i, 1)
+        }
+      }
+
       const preLength = this.errors.length
       this.errors.length = 0
       const pipes = ['readDir', 'hash', 'diff', 'upload']
@@ -363,7 +394,7 @@ class Task {
         })
       })
       if (this.errors.length !== preLength) this.updateStore()
-      if (this.errors.length > 15 || (this.readDir.isStopped() && this.errors.length)) {
+      if (this.errors.length > 8 || (this.readDir.isStopped() && this.errors.length)) {
         debug('errorCount', this.errors.length)
         this.paused = true
         clearInterval(this.countSpeed)

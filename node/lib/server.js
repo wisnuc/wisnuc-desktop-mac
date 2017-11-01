@@ -125,7 +125,7 @@ export class UploadMultipleFiles {
         const rs = readStreams[i]
         const part = parts[i]
         let formDataOptions = {
-          size: part.end ? part.end - part.start + 1 : 0,
+          size: part.end - part.start + 1,
           sha256: part.sha
         }
         if (part.start) {
@@ -292,7 +292,7 @@ const getName = (name, nameSpace) => {
     if (!extension || extension === name) {
       checkedName = `${name}(${i})`
     } else {
-      checkedName = `${path.parse(name).name}(${i}).${extension}`
+      checkedName = `${path.parse(name).name}(${i})${extension}`
     }
   }
   return checkedName
