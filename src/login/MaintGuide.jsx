@@ -42,7 +42,7 @@ class MaintGuide extends React.Component {
     this.backToVolumeCard = () => {
       this.setState({ expand: false }, () => {
         this.props.toggleExpanded(true)
-        setTimeout(() => this.setState({ detail: false }), 600)
+        setTimeout(() => this.props.refresh(), 600)
       })
     }
 
@@ -199,6 +199,8 @@ class MaintGuide extends React.Component {
     return (
       <InitWizard
         device={device}
+        bindWechat={this.props.bindWechat}
+        weChatStatus={this.props.weChatStatus}
         showContent
         onCancel={this.backToVolumeCard}
         onFail={this.backToVolumeCard}
