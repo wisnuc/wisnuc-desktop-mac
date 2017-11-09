@@ -1,4 +1,4 @@
-import fs from 'fs'
+import fs from 'original-fs'
 import path from 'path'
 import UUID from 'uuid'
 import Debug from 'debug'

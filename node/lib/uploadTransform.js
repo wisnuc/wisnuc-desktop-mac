@@ -1,5 +1,5 @@
 const Promise = require('bluebird')
-const fs = Promise.promisifyAll(require('fs'))
+const fs = Promise.promisifyAll(require('original-fs'))
 const path = require('path')
 const childProcess = require('child_process')
 const debug = require('debug')('node:lib:uploadTransform:')
@@ -57,8 +57,8 @@ class Task {
         clearInterval(this.countSpeed)
         return
       }
-      const speed = this.completeSize - this.lastTimeSize
-      this.speed = (this.lastSpeed + speed) / 2
+      const speed = Math.max(this.completeSize - this.lastTimeSize, 0)
+      this.speed = (this.lastSpeed + speed * 3) / 4
       this.lastSpeed = this.speed
       this.restTime = this.speed && (this.size - this.completeSize) / this.speed
       this.lastTimeSize = this.completeSize
@@ -134,6 +134,7 @@ class Task {
       },
       transform: (x, callback) => {
         const { entry, dirUUID, driveUUID, stat, policy, retry, task } = x
+        if (task.paused) return
         if (task.state !== 'uploading' && task.state !== 'diffing') task.state = 'hashing'
         const hashStart = (new Date()).getTime()
         readXattr(entry, (error, attr) => {
@@ -437,7 +438,12 @@ class Task {
   }
 
   updateStore() {
-    global.db.task.update({ _id: this.uuid }, { $set: this.status() }, {}, err => err && debug(this.name, 'updateStore error: ', err))
+    if (!this.WIP && !this.storeUpdated) {
+      this.WIP = true
+      global.db.task.update({ _id: this.uuid }, { $set: this.status() }, {}, err => err && debug(this.name, 'updateStore error: ', err))
+      this.storeUpdated = true
+      setTimeout(() => this && !(this.WIP = false) && this.updateStore(), 100)
+    } else this.storeUpdated = false
   }
 
   compactStore() {
