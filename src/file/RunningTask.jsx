@@ -1,6 +1,5 @@
 import React from 'react'
 import Debug from 'debug'
-import { IconButton } from 'material-ui'
 import DeleteSvg from 'material-ui/svg-icons/action/delete'
 import FileSvg from 'material-ui/svg-icons/editor/insert-drive-file'
 import FolderSvg from 'material-ui/svg-icons/file/folder'
@@ -10,6 +9,7 @@ import InfoSvg from 'material-ui/svg-icons/action/info'
 import DownloadSvg from 'material-ui/svg-icons/file/file-download'
 import UploadSvg from 'material-ui/svg-icons/file/file-upload'
 import MultiSvg from 'material-ui/svg-icons/content/content-copy'
+import IconButton from '../common/IconButton'
 
 const debug = Debug('component:file:RunningTask: ')
 const svgStyle = { color: '#000', opacity: 0.54 }
@@ -104,7 +104,7 @@ class RunningTask extends React.Component {
 
   renderPercent(task) {
     if (task.size === 0) return '0%'
-    const percent = (Math.abs(task.completeSize / task.size) * 99).toFixed(2)
+    const percent = (Math.abs(task.completeSize / task.size) * 100).toFixed(2)
     return `${percent}%`
   }
 

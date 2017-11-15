@@ -65,7 +65,7 @@ const actionHandler = (e, uuids, type) => {
       func = (task) => {
         if (typeof task.pause === 'function' && task.state !== 'finished') task.pause()
         Tasks.splice(Tasks.indexOf(task), 1)
-        global.db.task.remove({ _id: task.uuid }, { multi: true }, err => err && debug('DELETE_RUNNING error: ', err))
+        global.DB.remove(task.uuid, err => err && console.log('DELETE_RUNNING error: ', err))
       }
       break
     case 'PAUSE':
@@ -73,6 +73,9 @@ const actionHandler = (e, uuids, type) => {
       break
     case 'RESUME':
       func = task => task.resume()
+      break
+    case 'FINISH':
+      func = task => task.finish()
       break
     default:
       func = () => debug('error in actionHandler: no such action')
@@ -101,10 +104,11 @@ ipcMain.on('OPEN_TRANSMISSION', (e, paths) => paths.forEach(p => shell.openItem(
 
 ipcMain.on('PAUSE_TASK', (e, uuids) => actionHandler(e, uuids, 'PAUSE'))
 ipcMain.on('RESUME_TASK', (e, uuids) => actionHandler(e, uuids, 'RESUME'))
+ipcMain.on('FINISH_TASK', (e, uuids) => actionHandler(e, uuids, 'FINISH'))
 ipcMain.on('DELETE_TASK', (e, uuids) => actionHandler(e, uuids, 'DELETE'))
 
 ipcMain.on('START_TRANSMISSION', () => {
-  global.db.task.find({}, (error, tasks) => {
+  global.DB.loadAll((error, tasks) => {
     if (error) return debug('load nedb store error', error)
     // debug('startTransmissionHandle', tasks)
     tasks.forEach(t => t.state === 'finished' && Tasks.push(t))

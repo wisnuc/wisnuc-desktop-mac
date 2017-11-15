@@ -9,6 +9,7 @@ const { readXattr, setXattr } = require('./xattr')
 const { createFoldAsync, UploadMultipleFiles, serverGetAsync, isCloud } = require('./server')
 const { getMainWindow } = require('./window')
 const { Tasks, sendMsg } = require('./transmissionUpdate')
+const hashFileAsync = require('./filehash')
 
 /* return a new file name */
 const getName = (name, nameSpace) => {
@@ -45,6 +46,7 @@ class Task {
       this.state = 'visitless'
       this.trsType = 'upload'
       this.errors = []
+      this.startUpload = (new Date()).getTime()
     }
 
     this.initStatus()
@@ -58,9 +60,10 @@ class Task {
         return
       }
       const speed = Math.max(this.completeSize - this.lastTimeSize, 0)
-      this.speed = (this.lastSpeed + speed * 3) / 4
+      this.speed = Math.round((this.lastSpeed * 3 + speed) / 4)
       this.lastSpeed = this.speed
-      this.restTime = this.speed && (this.size - this.completeSize) / this.speed
+      this.averageSpeed = Math.round(this.completeSize / ((new Date()).getTime() - this.startUpload) * 1000)
+      this.restTime = this.speed && (this.size - this.completeSize) / this.averageSpeed
       this.lastTimeSize = this.completeSize
       sendMsg()
     }
@@ -122,15 +125,16 @@ class Task {
       concurrency: 1,
       push(x) {
         const { files, dirUUID, driveUUID, task } = x
-        debug('this.hash push', { files, dirUUID, driveUUID })
+        debug('this.hash push', files.length)
         files.forEach((f) => {
           if (f.stat.isDirectory()) {
             this.outs.forEach(t => t.push(Object.assign({}, f, { dirUUID, driveUUID, task, type: 'directory' })))
           } else {
             this.pending.push(Object.assign({}, f, { dirUUID, driveUUID, task }))
-            this.schedule()
           }
         })
+        this.schedule()
+        // debug('this.hash push forEach', files.length)
       },
       transform: (x, callback) => {
         const { entry, dirUUID, driveUUID, stat, policy, retry, task } = x
@@ -142,21 +146,34 @@ class Task {
             callback(null, { entry, dirUUID, driveUUID, parts: attr.parts, type: 'file', stat, policy, retry, task })
             return
           }
-          const options = {
-            env: { absPath: entry, size: stat.size, partSize: 1024 * 1024 * 1024 },
-            encoding: 'utf8',
-            cwd: process.cwd()
-          }
-          const child = childProcess.fork(path.join(__dirname, './filehash'), [], options)
-          child.on('message', (result) => {
-            setXattr(entry, result, (err, xattr) => {
-              debug('hash finished', ((new Date()).getTime() - hashStart) / 1000)
-              const p = xattr && xattr.parts
-              const r = retry ? retry + 1 : retry
-              callback(null, { entry, dirUUID, driveUUID, parts: p, type: 'file', stat, policy, retry: r, task })
+
+          if (stat.size < 134217728) {
+            hashFileAsync(entry, stat.size, 1024 * 1024 * 1024)
+              .then(parts => setXattr(entry, { parts }, (err, xattr) => {
+                debug('hash finished', ((new Date()).getTime() - hashStart) / 1000)
+                const p = xattr && xattr.parts
+                const r = retry ? retry + 1 : retry
+                callback(null, { entry, dirUUID, driveUUID, parts: p, type: 'file', stat, policy, retry: r, task })
+              }))
+              .catch(callback)
+          } else {
+            const options = {
+              env: { absPath: entry, size: stat.size, partSize: 1024 * 1024 * 1024 },
+              encoding: 'utf8',
+              cwd: process.cwd()
+            }
+
+            const child = childProcess.fork(path.join(__dirname, './filehash'), [], options)
+            child.on('message', (result) => {
+              setXattr(entry, result, (err, xattr) => {
+                debug('hash finished', ((new Date()).getTime() - hashStart) / 1000)
+                const p = xattr && xattr.parts
+                const r = retry ? retry + 1 : retry
+                callback(null, { entry, dirUUID, driveUUID, parts: p, type: 'file', stat, policy, retry: r, task })
+              })
             })
-          })
-          child.on('error', callback)
+            child.on('error', callback)
+          }
         })
       }
     })
@@ -269,6 +286,7 @@ class Task {
       concurrency: 2,
       isBlocked: () => this.paused,
       push(X) {
+        // debug('this.upload push', X.length)
         X.forEach((x) => {
           if (x.type === 'directory') {
             x.task.finishCount += 1
@@ -277,7 +295,7 @@ class Task {
             /* combine to one post */
             const { dirUUID, policy } = x
             /* upload N file within one post */
-            const i = this.pending.findIndex(p => !isCloud() && p.length < 8
+            const i = this.pending.findIndex(p => !isCloud() && p.length < 256
               && p[0].dirUUID === dirUUID && policy.mode === p[0].policy.mode)
             if (i > -1) {
               this.pending[i].push(x)
@@ -286,6 +304,7 @@ class Task {
             }
           }
         })
+        // debug('this.upload forEach', X.length)
         this.schedule()
       },
       transform: (X, callback) => {
@@ -358,7 +377,6 @@ class Task {
       if (!task.paused && task.finishCount === task.count && this.readDir.isStopped() && !task.errors.length) {
         task.finishDate = (new Date()).getTime()
         task.state = 'finished'
-        task.compactStore()
         clearInterval(task.countSpeed)
       }
       task.updateStore()
@@ -432,23 +450,19 @@ class Task {
   }
 
   createStore() {
+    this.countStore = 0
     if (!this.isNew) return
-    const data = Object.assign({}, { _id: this.uuid }, this.status())
-    global.db.task.insert(data, err => err && debug(this.name, 'createStore error: ', err))
+    global.DB.save(this.uuid, this.status(), err => err && console.log(this.name, 'createStore error: ', err))
   }
 
   updateStore() {
     if (!this.WIP && !this.storeUpdated) {
       this.WIP = true
-      global.db.task.update({ _id: this.uuid }, { $set: this.status() }, {}, err => err && debug(this.name, 'updateStore error: ', err))
+      global.DB.save(this.uuid, this.status(), err => err && console.log(this.name, 'updateStore error: ', err))
       this.storeUpdated = true
+      this.countStore += 1
       setTimeout(() => this && !(this.WIP = false) && this.updateStore(), 100)
     } else this.storeUpdated = false
-  }
-
-  compactStore() {
-    /* it's necessary to compact the data file to avoid size of db growing too large */
-    global.db.task.persistence.compactDatafile()
   }
 
   pause() {
@@ -465,6 +479,17 @@ class Task {
     this.initStatus()
     this.isNew = false
     this.run()
+    sendMsg()
+  }
+
+  finish() {
+    this.paused = true
+    this.readDir.clear()
+    this.reqHandles.forEach(h => h.abort())
+    this.finishDate = (new Date()).getTime()
+    this.state = 'finished'
+    clearInterval(this.countSpeed)
+    this.updateStore()
     sendMsg()
   }
 }
