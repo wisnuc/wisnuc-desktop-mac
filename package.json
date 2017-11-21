@@ -1,6 +1,6 @@
 {
   "name": "wisnuc",
-  "version": "1.2.14",
+  "version": "1.2.15",
   "description": "wisnuc",
   "author": "wisnuc <support@winsuntech.cn>",
   "repository": "https://github.com/wisnuc/wisnuc-desktop-mac",
@@ -15,7 +15,8 @@
     "rebuild": "electron-rebuild",
     "start": "electron .",
     "webpack": "webpack --watch --watch-poll",
-    "webpack2": "webpack -p"
+    "webpack2": "webpack -p",
+    "webpack3": "rm -f public/*.js && rm -f public/*.json && webpack --watch --watch-poll"
   },
   "devDependencies": {
     "babel-cli": "^6.26.0",

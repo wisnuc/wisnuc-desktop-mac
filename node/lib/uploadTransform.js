@@ -36,12 +36,14 @@ class Task {
       this.completeSize = 0
       this.lastTimeSize = 0
       this.count = 0
+      this.trueCount = 0
       this.finishCount = 0
       this.finishDate = 0
       this.name = props.policies[0] && props.policies[0].checkedName || path.parse(props.entries[0]).base
       this.paused = true
       this.restTime = 0
       this.size = 0
+      this.trueSize = 0
       this.speed = 0
       this.lastSpeed = 0
       this.state = 'visitless'
@@ -78,23 +80,22 @@ class Task {
       concurrency: 4,
       transform(x, callback) {
         const read = async (entries, dirUUID, driveUUID, policies, task) => {
-          const files = []
           for (let i = 0; i < entries.length; i++) {
-            // if (task.paused) throw Error('task paused !')
             if (task.paused) break
-            const policy = policies[i]
             const entry = entries[i]
             const stat = await fs.lstatAsync(path.resolve(entry))
             const fullName = path.parse(entry).base
+
             if (fullName === '.DS_Store' && !stat.isDirectory()) {
               task.warnings.push(Object.assign({
-                pipe: 'readDir', entry, error: { code: 'EDSSTORE' }, policy, stat, task: task.uuid, type: 'file'
+                pipe: 'readDir', entry, error: { code: 'EDSSTORE' }, stat, task: task.uuid, type: 'file'
               }))
               continue
             }
+
             if (!stat.isFile() && !stat.isDirectory()) {
               task.warnings.push(Object.assign({
-                pipe: 'readDir', entry, error: { code: 'ETYPE' }, policy, stat, task: task.uuid
+                pipe: 'readDir', entry, error: { code: 'ETYPE' }, stat, task: task.uuid
               }))
               console.log('unsupport type', entry)
               continue
@@ -103,13 +104,48 @@ class Task {
             const type = stat.isDirectory() ? 'directory' : 'file'
             if (fullName !== sanitize(fullName)) {
               task.warnings.push(Object.assign({
-                pipe: 'readDir', entry, error: { code: 'ENAME' }, policy, stat, task: task.uuid, type
+                pipe: 'readDir', entry, error: { code: 'ENAME' }, stat, task: task.uuid, type
               }))
               console.log('invalid name:', entry)
               continue
             }
 
             task.count += 1
+
+            if (stat.isDirectory()) {
+              /* read child */
+              const children = await fs.readdirAsync(path.resolve(entry))
+              const newEntries = []
+              children.forEach(c => newEntries.push(path.join(entry, c)))
+              await read(newEntries, dirUUID, driveUUID, policies, task)
+            } else task.size += stat.size
+          }
+          return ({ entries, dirUUID, driveUUID, policies, task })
+        }
+        const { entries, dirUUID, driveUUID, policies, task } = x
+        read(entries, dirUUID, driveUUID, policies, task).then(y => callback(null, y)).catch(callback)
+      }
+    })
+
+    this.mkdir = new Transform({
+      name: 'mkdir',
+      concurrency: 4,
+      transform(x, callback) {
+        const read = async (entries, dirUUID, driveUUID, policies, task) => {
+          const files = []
+          for (let i = 0; i < entries.length; i++) {
+            // if (task.paused) throw Error('task paused !')
+            if (task.paused) break
+            const policy = policies[i]
+            const entry = entries[i]
+            const stat = await fs.lstatAsync(path.resolve(entry))
+            const fullName = path.parse(entry).base
+
+            if (fullName === '.DS_Store' && !stat.isDirectory()) continue
+            if (!stat.isFile() && !stat.isDirectory()) continue
+            if (fullName !== sanitize(fullName)) continue
+
+            task.trueCount += 1
 
             if (stat.isDirectory()) {
               /* create fold and return the uuid */
@@ -128,12 +164,11 @@ class Task {
               childPolicies.length = newEntries.length
               childPolicies.fill({ mode: policy.mode }) // !!! fill with one object, all shared !!!
               if (policy.mode === 'rename' || policy.mode === 'replace') childPolicies.fill({ mode: 'normal' })
-              // debug('childPolicies', childPolicies)
+
               if (task.paused) break
               this.push({ entries: newEntries, dirUUID: uuid, driveUUID, policies: childPolicies, task })
-            } else {
-              task.size += stat.size
-            }
+            } else task.trueSize += stat.size
+
             files.push({ entry, stat, policy })
           }
           return ({ files, dirUUID, driveUUID, task, entries })
@@ -391,7 +426,7 @@ class Task {
       }
     })
 
-    this.readDir.pipe(this.hash).pipe(this.diff).pipe(this.upload)
+    this.readDir.pipe(this.mkdir).pipe(this.hash).pipe(this.diff).pipe(this.upload)
 
     this.readDir.on('data', (x) => {
       const { dirUUID, task } = x
@@ -408,8 +443,12 @@ class Task {
     })
 
     this.readDir.on('step', () => {
-      /* retry, if upload error && response code ∈ [400, 500) && retry times < 2 */
+      if (this.trueSize > this.size || this.trueCount > this.count || (this.mkdir.isSelfStopped() && !this.mkdir.failed.length)) {
+        this.size = this.trueSize
+        this.count = this.trueCount
+      }
 
+      /* retry, if upload error && response code ∈ [400, 500) && retry times < 2 */
       for (let i = this.upload.failed.length - 1; i > -1; i--) {
         const X = this.upload.failed[i]
         const index = Array.isArray(X) && X.findIndex((x) => {
@@ -428,7 +467,7 @@ class Task {
 
       const preLength = this.errors.length
       this.errors.length = 0
-      const pipes = ['readDir', 'hash', 'diff', 'upload']
+      const pipes = ['readDir', 'mkdir', 'hash', 'diff', 'upload']
       pipes.forEach((p) => {
         if (!this[p].failed.length) return
         this[p].failed.forEach((x) => {

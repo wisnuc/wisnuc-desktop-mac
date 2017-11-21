@@ -39,8 +39,9 @@ class RunningTask extends React.Component {
 
     this.checkError = () => {
       debug('this.checkError', this.props.task)
-      const combined = [...this.props.task.errors, ...this.props.task.warnings]
-      this.props.openErrorDialog(combined)
+      const errors = this.props.task.errors || []
+      const warnings = this.props.task.warnings || []
+      this.props.openErrorDialog([...errors, ...warnings])
     }
   }
 
@@ -76,10 +77,10 @@ class RunningTask extends React.Component {
     let s = parseInt(seconds, 10)
     let m = 0
     let h = 0
-    if (s > 60) {
+    if (s >= 60) {
       m = parseInt(s / 60)
       s = parseInt(s % 60)
-      if (m > 60) {
+      if (m >= 60) {
         h = parseInt(m / 60)
         m = parseInt(m % 60)
       }

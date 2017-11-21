@@ -78,7 +78,8 @@ class Public extends Home {
     } else {
       if (data === this.state.listNavDir && !this.force) return
       path = [{ name: '共享盘', uuid: this.rootDrive.uuid, type: 'publicRoot' }, ...data.path] // important !!
-      path[1].name = this.rootDrive.name || this.state.drives.find(d => d.uuid === this.rootDrive.uuid).label
+      const drives = this.state.drives || this.ctx.props.apis.drives.value()
+      path[1].name = this.rootDrive.name || this.ctx.props.apis.drives.value().find(d => d.uuid === this.rootDrive.uuid).label
       entries = data.entries
 
       /* sort enries */
@@ -107,22 +108,13 @@ class Public extends Home {
 
   navEnter(target) {
     this.isNavEnter = true
-    this.rootDrive = null
     const apis = this.ctx.props.apis
-    if (target && target.driveUUID) {
+    if (target && target.driveUUID) { // jump to specific dir
       const { driveUUID, dirUUID } = target
-      apis.request('listNavDir', { driveUUID, dirUUID }, (err) => {
-        if (!err) return
-        this.ctx.openSnackBar('打开目录失败')
-        this.refresh()
-      })
+      apis.request('listNavDir', { driveUUID, dirUUID })
       this.rootDrive = { uuid: driveUUID }
       this.setState({ loading: true })
-    } else {
-      debug('navEnter drive', this.state)
-      apis.request('drives')
-      this.setState({ loading: true })
-    }
+    } else this.refresh()
   }
 
   navLeave() {
