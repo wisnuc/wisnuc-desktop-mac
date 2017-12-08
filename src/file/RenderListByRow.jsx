@@ -1,4 +1,5 @@
 import React from 'react'
+import i18n from 'i18n'
 import Debug from 'debug'
 import prettysize from 'prettysize'
 import { Avatar, Popover, MenuItem, Menu, IconButton } from 'material-ui'
@@ -72,7 +73,7 @@ class Row extends React.PureComponent {
       /* these are view-model state */
       entries,
       select,
-      showTakenTime,
+      showTakenTime
     } = this.props
 
     const entry = entries[index]
@@ -112,24 +113,18 @@ class Row extends React.PureComponent {
           </div>
 
           <div
-            style={{ flex: '0 0 390px', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}
+            style={{ flex: '0 0 476px', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', marginRight: 24 }}
             onMouseDown={e => 0 && e.stopPropagation()}
           >
             { entry.name }
           </div>
 
-          <div style={{ flex: '0 1 160px', fontSize: 13, color: 'rgba(0,0,0,0.54)', textAlign: 'right' }}>
+          <div style={{ flex: '0 1 144px', fontSize: 13, color: 'rgba(0,0,0,0.54)' }}>
             { showTakenTime ? entry.metadata && (entry.metadata.date || entry.metadata.datetime)
               && formatDate(entry.metadata.date || entry.metadata.datetime) : entry.mtime && formatTime(entry.mtime) }
           </div>
 
-          <div
-            style={{ flex: '0 1 160px',
-              fontSize: 13,
-              color: 'rgba(0,0,0,0.54)',
-              textAlign: 'right',
-              marginRight: 72 }}
-          >
+          <div style={{ flex: '0 1 144px', fontSize: 13, color: 'rgba(0,0,0,0.54)', textAlign: 'right' }} >
             { entry.type === 'file' && prettysize(entry.size, false, true, 2) }
           </div>
 
@@ -160,10 +155,10 @@ class RenderListByRow extends React.Component {
     this.handleChange = (type) => {
       if (this.state.type !== type) {
         switch (type) {
-          case '修改时间':
+          case i18n.__('Date Modified'):
             this.props.changeSortType('timeUp')
             break
-          case '拍摄时间':
+          case i18n.__('Date Taken'):
             this.props.changeSortType('takenUp')
             break
           default:
@@ -232,8 +227,8 @@ class RenderListByRow extends React.Component {
 
   renderPopoverHeader() {
     const headers = [
-      { title: '修改时间', up: 'timeUp', down: 'timeDown' },
-      { title: '拍摄时间', up: 'takenUp', down: 'takenDown' }
+      { title: i18n.__('Date Modified'), up: 'timeUp', down: 'timeDown' },
+      { title: i18n.__('Date Taken'), up: 'takenUp', down: 'takenDown' }
     ]
 
     const { sortType, changeSortType } = this.props
@@ -244,10 +239,10 @@ class RenderListByRow extends React.Component {
     // debug('renderPopoverHeader this.props', this.props, sortType, h, isSelected)
 
     return (
-      <div style={{ display: 'flex', alignItems: 'center ', width: 168, marginLeft: -8, marginTop: 2 }}>
+      <div style={{ display: 'flex', alignItems: 'center ', width: 172, marginLeft: -10, marginTop: 2, marginRight: 92 }}>
         <FlatButton
           label={h.title}
-          labelStyle={{ fontSize: 14, color: 'rgba(0,0,0,0.54)' }}
+          labelStyle={{ fontSize: 14, color: 'rgba(0,0,0,0.54)', textTransform: '' }}
           onTouchTap={this.toggleMenu}
         />
         {/* menu */}
@@ -261,15 +256,15 @@ class RenderListByRow extends React.Component {
           <Menu style={{ minWidth: 200 }}>
             <MenuItem
               style={{ fontSize: 13 }}
-              leftIcon={this.state.type === '修改时间' ? <CheckIcon /> : <div />}
-              primaryText="修改时间"
-              onTouchTap={() => this.handleChange('修改时间')}
+              leftIcon={this.state.type === i18n.__('Date Modified') ? <CheckIcon /> : <div />}
+              primaryText={i18n.__('Date Modified')}
+              onTouchTap={() => this.handleChange(i18n.__('Date Modified'))}
             />
             <MenuItem
               style={{ fontSize: 13 }}
-              leftIcon={this.state.type === '拍摄时间' ? <CheckIcon /> : <div />}
-              primaryText="拍摄时间"
-              onTouchTap={() => this.handleChange('拍摄时间')}
+              leftIcon={this.state.type === i18n.__('Date Taken') ? <CheckIcon /> : <div />}
+              primaryText={i18n.__('Date Taken')}
+              onTouchTap={() => this.handleChange(i18n.__('Date Taken'))}
             />
           </Menu>
         </Popover>
@@ -320,9 +315,9 @@ class RenderListByRow extends React.Component {
           onMouseMove={e => this.props.selectRow(e, this.getScrollToPosition())}
         >
           <div style={{ flex: '0 0 104px' }} />
-          { this.renderHeader({ title: '名称', width: 494, up: 'nameUp', down: 'nameDown' }) }
+          { this.renderHeader({ title: i18n.__('Name'), width: 500, up: 'nameUp', down: 'nameDown' }) }
           { this.renderPopoverHeader() }
-          { this.renderHeader({ title: '文件大小', width: 160, up: 'sizeUp', down: 'sizeDown' }) }
+          { this.renderHeader({ title: i18n.__('Size'), width: 60, up: 'sizeUp', down: 'sizeDown' }) }
           <div style={{ flexGrow: 1 }} />
         </div>
 

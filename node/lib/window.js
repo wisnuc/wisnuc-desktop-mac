@@ -1,4 +1,5 @@
 import path from 'path'
+import i18n from 'i18n'
 import Debug from 'debug'
 import fs from 'original-fs'
 import mkdirp from 'mkdirp'
@@ -49,11 +50,11 @@ const initMainWindow = () => {
     } else {
       dialog.showMessageBox(_mainWindow, {
         type: 'warning',
-        title: '关闭应用',
-        buttons: ['取消', '关闭'],
-        checkboxLabel: '不再提示',
+        title: i18n.__('Confirm Close Title'),
+        buttons: [i18n.__('Cancel'), i18n.__('Close')],
+        checkboxLabel: i18n.__('Do not Show again'),
         checkboxChecked: false,
-        message: '确定退出并关闭应用吗？'
+        message: i18n.__('Confirm Close Text')
       }, (response, checkboxChecked) => {
         if (response === 1 && checkboxChecked) {
           close = true
@@ -78,7 +79,7 @@ const initMainWindow = () => {
   // ipc message will be lost if sent early than 'did-finish-load'
   const contents = _mainWindow.webContents
   contents.on('did-finish-load', () =>
-    contents.send('CONFIG_LOADED', global.configuration.getConfiguration()))
+    contents.send('CONFIG_UPDATE', global.configuration.getConfiguration()))
 
   // console.log('[window] mainWindow initialized')
 }

@@ -7,15 +7,14 @@ import { teal500, pinkA200 } from 'material-ui/styles/colors'
 
 import Login from './login/LoginApp'
 import Navigation from './nav/Navigation'
-import Maintenance from './maintenance/Maintenance'
 import Device from './common/device'
 
 const adjustSeq = (pre) => {
   let mdns = pre
   if (!global.config || !global.config.global.lastDevice) return mdns
-  const lastSerial = global.config.global.lastDevice.serial
+  const lastHost = global.config.global.lastDevice.host
   const lastAddress = global.config.global.lastDevice.address
-  const index = mdns.findIndex(m => (m.serial === lastSerial || m.address === lastAddress))
+  const index = mdns.findIndex(m => (m.host === lastHost || m.address === lastAddress))
   if (index > -1) {
     mdns = [mdns[index], ...mdns.slice(0, index), ...mdns.slice(index + 1)]
   }
@@ -42,7 +41,6 @@ class Fruitmix extends React.Component {
 
       nav: this.nav.bind(this),
       login: this.login.bind(this),
-      maintain: this.maintain.bind(this),
       selectDevice: this.selectDevice.bind(this),
       setPalette: this.setPalette.bind(this),
       ipcRenderer
@@ -95,10 +93,6 @@ class Fruitmix extends React.Component {
     this.setState({ view })
   }
 
-  maintain() {
-    this.setState({ view: 'maintenance' })
-  }
-
   login() {
     this.setState({ view: 'user' })
   }
@@ -110,10 +104,6 @@ class Fruitmix extends React.Component {
       case 'login':
         Object.assign(this.state, { theme: defaultTheme })
         view = <Login mdns={adjustSeq(global.mdnsStore)} primaryColor={teal500} {...this.state} />
-        break
-
-      case 'maintenance':
-        view = <Maintenance {...this.state} />
         break
 
       case 'user':

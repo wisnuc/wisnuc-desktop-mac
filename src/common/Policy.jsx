@@ -1,4 +1,5 @@
 import React from 'react'
+import i18n from 'i18n'
 import Debug from 'debug'
 import { IconButton, Checkbox, RaisedButton, TextField, RadioButtonGroup, RadioButton } from 'material-ui'
 import DoneIcon from 'material-ui/svg-icons/action/done'
@@ -68,29 +69,29 @@ class PolicyDialog extends React.PureComponent {
   renderChoice() {
     const { name, entryType, remote } = this.props.data.conflicts[this.state.current]
     debug('renderChoice', entryType, remote.type)
-    const type = entryType === 'directory' ? '文件夹' : '文件'
-    const remoteType = remote.type === 'directory' ? '文件夹' : '文件'
+    const type = entryType === 'directory' ? i18n.__('Directory') : i18n.__('File')
+    const remoteType = remote.type === 'directory' ? i18n.__('Directory') : i18n.__('File')
     /* file => file */
     const choices = [
-      { value: 'rename', label: `保留，两个项目均保留，自动重命名新上传的${type}` },
-      { value: 'replace', label: `替换，使用新上传的${type}替换已有${remoteType}` },
-      { value: 'skip', label: `跳过，该${type}将不会被上传` }
+      { value: 'rename', label: i18n.__('Rename Text %s', type) },
+      { value: 'replace', label: i18n.__('Replace Text %s %s', type, remoteType) },
+      { value: 'skip', label: i18n.__('Skip Text %s', type) }
     ]
 
     /* directory => directory */
     if (entryType === 'directory' && entryType === remote.type) {
       choices.splice(
         0, 2,
-        { value: 'merge', label: '保留，全部内容均保留，如遇同名但内容不同的文件将自动重命名后上传' },
-        { value: 'overwrite', label: '覆盖，如遇同名文件将使用新上传的文件替换已有文件' },
+        { value: 'merge', label: i18n.__('Merge Text') },
+        { value: 'overwrite', label: i18n.__('Overwrite Text') },
       )
     }
 
-    let text = `${type} “${name}” 在上传目标路径下已经存在，请选择您要执行的操作：`
+    let text = i18n.__('Default Conflict Title {{type}} {{name}}', { type, name })
 
     /* directory => file || file => directory */
     if (entryType !== remote.type) {
-      text = `上传${type} “${name}” 时，发现上传目标路径下已经存在同名的${remoteType}，请选择您要执行的操作：`
+      text = i18n.__('Alt Conflict Title {{type}} {{name}} {{remoteType}}', { type, name, remoteType })
     }
 
     /* default: choose the first option */
@@ -140,16 +141,17 @@ class PolicyDialog extends React.PureComponent {
         <div style={{ height: 52, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', marginRight: -24 }}>
           { leftCount > 0 &&
             <Checkbox
-              label={`其他同类型冲突也执行此操作（还有${leftCount}项）`}
-              labelStyle={{ color: '#757575' }}
+              label={i18n.__('Apply All Text %d', leftCount)}
+              labelStyle={{ color: '#757575', fontSize: 14 }}
               iconStyle={{ fill: this.state.checked ? this.props.primaryColor : '#757575' }}
               checked={this.state.checked}
               onCheck={this.toggleCheck}
-              style={{ width: 456 }}
+              style={{ width: 410 }}
             />
           }
-          <FlatButton label="取消" onTouchTap={this.cancel} primary />
-          <FlatButton label="确认" onTouchTap={this.next} primary />
+          <div style={{ flexGrow: 1 }} />
+          <FlatButton label={i18n.__('Cancel')} onTouchTap={this.cancel} primary />
+          <FlatButton label={i18n.__('Confirm')} onTouchTap={this.next} primary />
         </div>
       </div>
     )

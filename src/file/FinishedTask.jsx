@@ -1,4 +1,5 @@
 import React, { Component } from 'react'
+import i18n from 'i18n'
 import FolderSvg from 'material-ui/svg-icons/file/folder'
 import FileSvg from 'material-ui/svg-icons/editor/insert-drive-file'
 import DownloadSvg from 'material-ui/svg-icons/file/file-download'
@@ -27,7 +28,6 @@ class FinishedTask extends Component {
     }
 
     this.openFileLocation = () => {
-      console.log('this.openFileLocation')
       if (this.props.task.trsType === 'download') setImmediate(this.props.open)
       else setImmediate(this.props.openInDrive)
     }
@@ -91,7 +91,7 @@ class FinishedTask extends Component {
             { task.name }
           </div>
           <div>
-            { task.entries.length > 1 && ` 等${task.entries.length}个项目` }
+            { task.entries.length > 1 && i18n.__('And Other %s Items', task.entries.length)}
           </div>
         </div>
 

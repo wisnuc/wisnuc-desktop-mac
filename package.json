@@ -1,6 +1,6 @@
 {
   "name": "wisnuc",
-  "version": "1.2.15",
+  "version": "1.2.16",
   "description": "wisnuc",
   "author": "wisnuc <support@winsuntech.cn>",
   "repository": "https://github.com/wisnuc/wisnuc-desktop-mac",
@@ -8,6 +8,7 @@
   "main": "main.js",
   "scripts": {
     "build": "babel node --out-dir build",
+    "checkI18n": "node test/checkI18n.js",
     "devel": "nodemon --exec electron devel.js",
     "devel2": "electron devel.js",
     "doc": "nodemon --exec jsdoc -c jsdoc.conf.json -t node_modules/ink-docstrap/template",
@@ -63,6 +64,7 @@
     "debug": "^3.1.0",
     "ftp": "^0.3.10",
     "gsap": "^1.20.3",
+    "i18n": "^0.8.3",
     "keycode": "^2.1.9",
     "material-ui": "^0.16.7",
     "mdns-js": "^0.5.3",

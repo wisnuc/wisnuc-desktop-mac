@@ -1,4 +1,5 @@
 import React from 'react'
+import i18n from 'i18n'
 import Debug from 'debug'
 import { ipcRenderer } from 'electron'
 
@@ -75,11 +76,11 @@ class NavViews extends React.Component {
     this.install('networking', Networking)
     this.install('timeDate', TimeDate)
     this.install('fanControl', FanControl)
+    this.install('firmwareUpdate', FirmwareUpdate)
     this.install('power', Power)
 
     this.install('clientSettings', Settings)
     this.install('clientUpdate', ClientUpdate)
-    // this.install('firmwareUpdate', FirmwareUpdate)
 
 
     Object.assign(this.state, {
@@ -106,13 +107,8 @@ class NavViews extends React.Component {
   componentDidMount() {
     this.navTo('home')
     ipcRenderer.send('START_TRANSMISSION')
-    ipcRenderer.on('snackbarMessage', (e, message) => {
-      this.openSnackBar(message.message)
-    })
-    ipcRenderer.on('conflicts', (e, args) => {
-      debug('ipcRnederer on conflicts', args)
-      this.setState({ conflicts: args })
-    })
+    ipcRenderer.on('snackbarMessage', (e, message) => setTimeout(() => this.openSnackBar(message.message), 200))
+    ipcRenderer.on('conflicts', (e, args) => setTimeout(() => this.setState({ conflicts: args }), 200))
   }
 
   componentDidUpdate() {
@@ -228,7 +224,7 @@ class NavViews extends React.Component {
     const view = this.currentView()
     if (!view.hasDetail()) return null
     let DetailIcon = ActionInfo
-    let tooltip = '详情'
+    let tooltip = i18n.__('Detail')
     if (view.detailIcon()) {
       DetailIcon = view.detailIcon()
       tooltip = ''
@@ -429,16 +425,21 @@ class NavViews extends React.Component {
 
           {/* content + shortcut container */}
           <div
-            style={{ width: '100%',
+            style={{
+              width: '100%',
               height: `calc(100% - ${this.appBarHeight()}px)`,
               display: 'flex',
-              justifyContent: 'space-between' }}
+              justifyContent: 'space-between'
+            }}
           >
 
             { view.showQuickNav() && this.renderQuickNavs() }
 
             {/* content */}
-            <div style={{ width: '100%', height: '100%', paddingLeft: 8, paddingTop: 8, boxSizing: 'border-box' }} id="content-container">
+            <div
+              id="content-container"
+              style={{ width: '100%', height: '100%', paddingLeft: 8, paddingTop: 8, boxSizing: 'border-box' }}
+            >
               {
                 view.renderContent({
                   navTo: this.navTo.bind(this),

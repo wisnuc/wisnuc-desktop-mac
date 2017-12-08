@@ -1,4 +1,5 @@
 import React from 'react'
+import i18n from 'i18n'
 import { TextField, Checkbox } from 'material-ui'
 import muiThemeable from 'material-ui/styles/muiThemeable'
 
@@ -11,7 +12,7 @@ class LoginBox extends React.Component {
     this.device = this.props.device.mdev
     this.lastDevice = global.config.global.lastDevice || {}
 
-    this.isSameDevice = this.lastDevice.address === this.device.address || this.lastDevice.serial === this.device.serial
+    this.isSameDevice = this.lastDevice.address === this.device.address || this.lastDevice.host === this.device.host
 
     this.state = {
       password: '',
@@ -28,8 +29,7 @@ class LoginBox extends React.Component {
       if (this.state.saveToken) {
         this.token = null
         this.setState({ autologin: false, saveToken: false })
-      }
-      else this.setState({ saveToken: true })
+      } else this.setState({ saveToken: true })
     }
 
     this.onInput = (e) => {
@@ -107,7 +107,7 @@ class LoginBox extends React.Component {
   render() {
     const { token } = this.props.device
     const busy = token && token.isPending()
-    const error = (token && token.isRejected()) ? token.reason().message === 'Unauthorized' ? '密码错误' : token.reason().message : null
+    const error = (token && token.isRejected()) ? token.reason().message === 'Unauthorized' ? i18n.__('Wrong Password') : token.reason().message : null
     const success = token && token.isFulfilled()
 
     // console.log('LoginBox', this.state, this.props)
@@ -130,14 +130,8 @@ class LoginBox extends React.Component {
         { this.props.open && (
           <div style={{ width: '100%', display: 'flex', flexDirection: 'column' }}>
             <div style={{ flex: '0 0 24px' }} />
-            <div
-              style={{
-                flex: '0 0 24px',
-                fontSize: 13,
-                color: 'rgba(0,0,0,0.38)',
-                marginBottom: 8
-              }}
-            >用户登录
+            <div style={{ flex: '0 0 24px', fontSize: 13, color: 'rgba(0,0,0,0.38)', marginBottom: 8 }} >
+              { i18n.__('User Login') }
             </div>
             <div
               style={{
@@ -154,18 +148,18 @@ class LoginBox extends React.Component {
             <div style={{ width: '100%', flex: '0 0 68px', position: 'relative' }}>
               { !success &&
                 this.token ?
-                <TextField
-                  key={this.props.user.uuid}
-                  style={{ position: 'absolute', bottom: 0 }}
-                  fullWidth
-                  hintText="*********"
-                  onTouchTap={this.passwordMode}
-                />
+                  <TextField
+                    key={this.props.user.uuid}
+                    style={{ position: 'absolute', bottom: 0 }}
+                    fullWidth
+                    hintText="*********"
+                    onTouchTap={this.passwordMode}
+                  />
                 : <TextField
                   style={{ position: 'absolute', bottom: 0 }}
                   key={this.props.user.uuid}
                   fullWidth
-                  hintText="请输入密码"
+                  hintText={i18n.__('Password Hint')}
                   errorText={error}
                   errorStyle={{ marginTop: -48 }}
                   type="password"
@@ -178,7 +172,7 @@ class LoginBox extends React.Component {
 
             <div style={{ width: '100%', flex: '0 0 48px' }}>
               <Checkbox
-                label="记住密码"
+                label={i18n.__('Remember Password')}
                 disableTouchRipple
                 labelStyle={{ fontSize: 12, color: 'rgba(0,0,0,0.54)', marginLeft: -9 }}
                 iconStyle={{ height: 16, width: 16, marginTop: 2 }}
@@ -186,7 +180,7 @@ class LoginBox extends React.Component {
                 onCheck={() => this.handleSaveToken()}
               />
               <Checkbox
-                label="自动登录"
+                label={i18n.__('Auto Login')}
                 disableTouchRipple
                 labelStyle={{ fontSize: 12, color: 'rgba(0,0,0,0.54)', marginLeft: -9 }}
                 iconStyle={{ height: 16, width: 16, marginTop: 2 }}
@@ -208,13 +202,13 @@ class LoginBox extends React.Component {
                   }}
                 >
                   <FlatButton
-                    label="取消"
+                    label={i18n.__('Cancel')}
                     primary
                     disabled={busy}
                     onTouchTap={this.props.cancel}
                   />
                   <FlatButton
-                    label="确认"
+                    label={i18n.__('Confirm')}
                     primary
                     disabled={!this.token && (this.state.password.length === 0 || busy)}
                     onTouchTap={() => (this.token ? this.fakeLogin() : this.login())}

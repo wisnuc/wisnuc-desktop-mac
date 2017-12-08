@@ -1,4 +1,5 @@
 import React from 'react'
+import i18n from 'i18n'
 import Debug from 'debug'
 import EventListener from 'react-event-listener'
 import { CircularProgress } from 'material-ui'
@@ -73,7 +74,7 @@ class FileContent extends React.Component {
       if (entry.type === 'file') {
         this.setState({ seqIndex: index, preview: true })
       } else {
-        debug('should change to loading')
+        // debug('should change to loading')
         this.setState({ loading: true })
       }
     }
@@ -93,9 +94,9 @@ class FileContent extends React.Component {
       const dir = this.props.home.path
       const dirUUID = dir[dir.length - 1].uuid
       const driveUUID = this.props.home.path[0].uuid
-      debug('drop files!!', files, dirUUID, driveUUID, dir)
+      // debug('drop files!!', files, dirUUID, driveUUID, dir)
       if (!dirUUID || !driveUUID) {
-        this.props.openSnackBar('共享盘列表不能上传文件或文件夹')
+        this.props.openSnackBar(i18n.__('No Drag File Warning in Public'))
       } else {
         this.props.ipcRenderer.send('DRAG_FILE', { files, dirUUID, driveUUID })
       }
@@ -155,7 +156,7 @@ class FileContent extends React.Component {
       const s = this.refSelectBox.style
       const dx = event.clientX - this.selectBox.x
       const dy = event.clientY - this.selectBox.y
-      debug('event.clientX event.clientY', event.clientX, event.clientY)
+      // debug('event.clientX event.clientY', event.clientX, event.clientY)
       if (dy < 0) this.up = true
       else this.up = false
 
@@ -299,8 +300,8 @@ class FileContent extends React.Component {
           }}
         >
           <UploadIcon style={{ height: 64, width: 64, color: 'rgba(0,0,0,0.27)' }} />
-          <div style={{ fontSize: 24, color: 'rgba(0,0,0,0.27)' }}> { '将文件拖到此处' } </div>
-          <div style={{ color: 'rgba(0,0,0,0.27)' }}> { '或点击上传按钮' } </div>
+          <div style={{ fontSize: 24, color: 'rgba(0,0,0,0.27)' }}> { i18n.__('No File Text 1') } </div>
+          <div style={{ color: 'rgba(0,0,0,0.27)' }}> { i18n.__('No File Text 2') } </div>
         </div>
       </div>
     )
@@ -325,7 +326,7 @@ class FileContent extends React.Component {
           }}
         >
           <ErrorIcon style={{ height: 64, width: 64, color: 'rgba(0,0,0,0.27)' }} />
-          <div style={{ fontSize: 20, color: 'rgba(0,0,0,0.27)' }}> { '网络连接已断开，请检查网络设置' } </div>
+          <div style={{ fontSize: 20, color: 'rgba(0,0,0,0.27)' }}> { i18n.__('Offline Text') } </div>
         </div>
       </div>
     )
