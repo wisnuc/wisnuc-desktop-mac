@@ -90,7 +90,7 @@
   "==== login/LoginApp.jsx ====": "",
   "Login via WeChat": "Login via WeChat",
   "Version": "Version",
-  "Copyright Info": "©2017 Winsuntech, Inc.",
+  "Copyright Info": "©2017 Shanghai Wisnuc Technology Co., Ltd.",
 
   "==== login/LoginBox.jsx ====": "",
   "Wrong Password": "The password provided is incorrect.",
@@ -557,7 +557,7 @@
   "ESHA256MISMATCH": "File modified.",
   "EOVERSIZE": "File modified.",
   "EUNDERSIZE": "File modified.",
-  "ENAME": "Unsupported file name",
+  "ENAME": "Unsupported file or folder name",
   "ETYPE": "Unsupported file type",
   "EIGNORE": "File ignored",
   "Unknown Error": "Unknown error",

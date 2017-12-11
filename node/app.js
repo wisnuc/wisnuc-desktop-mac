@@ -1,5 +1,6 @@
 import { app } from 'electron'
 import i18n from 'i18n'
+import path from 'path'
 
 import store from './lib/store'
 import configObserver from './lib/configObserver'
@@ -40,7 +41,7 @@ app.on('ready', () => {
 
   i18n.configure({
     locales: ['en-US', 'zh-CN'],
-    directory: './locales',
+    directory: path.resolve(__dirname, '../', 'locales'),
     defaultLocale: /zh/.test(app.getLocale()) ? 'zh-CN' : 'en-US'
   })
 })
