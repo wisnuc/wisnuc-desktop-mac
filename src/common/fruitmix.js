@@ -324,11 +324,11 @@ class Fruitmix extends EventEmitter {
         break
 
       case 'addMagnet':
-        r = this.apost('download', { magnetURL: args.magnetURL, downloadPath: args.downloadPath })
+        r = this.apost('download/magnet', { magnetURL: args.magnetURL, dirUUID: args.dirUUID })
         break
 
-      case 'handleMagnet': // op: 'pause', 'resume', 'destory'
-        r = this.apatch(`download/${args.id}`, { op: args.op, torrentId: args.id })
+      case 'handleMagnet': // op: 'pause', 'resume', 'destroy'
+        r = this.apatch(`download/${args.id}`, { op: args.op })
         break
 
       default:
@@ -363,6 +363,14 @@ class Fruitmix extends EventEmitter {
 
       case 'task':
         r = this.aget(`tasks/${args.uuid}`)
+        break
+
+      case 'deleteTask':
+        r = this.adel(`tasks/${args.uuid}`)
+        break
+
+      case 'handleTask':
+        r = this.apatch(`tasks/${args.taskUUID}/nodes/${args.nodeUUID}`, { policy: args.policy })
         break
 
       /* Ticket and Wechat API */

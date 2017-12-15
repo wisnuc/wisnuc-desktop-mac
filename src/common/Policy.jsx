@@ -34,14 +34,17 @@ class PolicyDialog extends React.PureComponent {
     this.fire = () => {
       const session = this.props.data.session
       const response = this.response
-      debug('this.fire', session, response)
-      this.props.ipcRenderer.send('resolveConflicts', { session, response, conflicts: this.props.data.conflicts })
+      debug('this.fire', session, response, this.props.data)
+
+      if (this.props.data.actionType) this.props.handleTask(session, response, this.props.data.conflicts)
+      else this.props.ipcRenderer.send('resolveConflicts', { session, response, conflicts: this.props.data.conflicts })
+
       this.props.onRequestClose()
     }
 
     this.cancel = () => {
       const session = this.props.data.session
-      this.props.ipcRenderer.send('resolveConflicts', { session, response: null })
+      if (!this.props.data.actionType) this.props.ipcRenderer.send('resolveConflicts', { session, response: null })
       this.props.onRequestClose()
     }
 
@@ -68,30 +71,33 @@ class PolicyDialog extends React.PureComponent {
 
   renderChoice() {
     const { name, entryType, remote } = this.props.data.conflicts[this.state.current]
-    debug('renderChoice', entryType, remote.type)
+    debug('renderChoice', entryType, remote.type, this.props.data)
     const type = entryType === 'directory' ? i18n.__('Directory') : i18n.__('File')
     const remoteType = remote.type === 'directory' ? i18n.__('Directory') : i18n.__('File')
+    let action = i18n.__('Uploading')
+    if (this.props.data.actionType === 'copy') action = i18n.__('Copying')
+    if (this.props.data.actionType === 'move') action = i18n.__('Moving')
     /* file => file */
     const choices = [
-      { value: 'rename', label: i18n.__('Rename Text %s', type) },
-      { value: 'replace', label: i18n.__('Replace Text %s %s', type, remoteType) },
-      { value: 'skip', label: i18n.__('Skip Text %s', type) }
+      { value: 'rename', label: i18n.__('Rename Text {{type}} {{action}}', { type, action }) },
+      { value: 'replace', label: i18n.__('Replace Text {{type}} {{remoteType}} {{action}}', { type, remoteType, action }) },
+      { value: 'skip', label: i18n.__('Skip Text {{type}} {{action}}', { type, action }) }
     ]
 
     /* directory => directory */
     if (entryType === 'directory' && entryType === remote.type) {
       choices.splice(
         0, 2,
-        { value: 'merge', label: i18n.__('Merge Text') },
-        { value: 'overwrite', label: i18n.__('Overwrite Text') },
+        { value: 'merge', label: i18n.__('Merge Text {{action}}', { action }) },
+        { value: 'overwrite', label: i18n.__('Overwrite Text {{action}}', { action }) },
       )
     }
 
-    let text = i18n.__('Default Conflict Title {{type}} {{name}}', { type, name })
+    let text = i18n.__('Default Conflict Title {{type}} {{name}} {{action}}', { type, name, action })
 
     /* directory => file || file => directory */
     if (entryType !== remote.type) {
-      text = i18n.__('Alt Conflict Title {{type}} {{name}} {{remoteType}}', { type, name, remoteType })
+      text = i18n.__('Alt Conflict Title {{type}} {{name}} {{remoteType}} {{action}}', { type, name, remoteType, action })
     }
 
     /* default: choose the first option */

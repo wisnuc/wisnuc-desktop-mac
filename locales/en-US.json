@@ -168,14 +168,23 @@
   "==== common/Policy.jsx ====": "",
   "Directory": "Folder",
   "File": "File",
-  "Rename Text %s": "Keep both, auto rename the new %s.",
-  "Replace Text %s %s": "Replace, the new %s will replace the original %s.",
-  "Skip Text %s": "Skip，the %s will not upload.",
-  "Merge Text": "Merge，keep all, the file with conflict name will be renamed.",
-  "Overwrite Text": "Overwrite, the file with conflict name will replace the original file.",
-  "Default Conflict Title {{type}} {{name}}": "A {{type}} named '{{name}}' already exists, please select a policy:",
-  "Alt Conflict Title {{type}} {{name}} {{remoteType}}": "When uploading the {{type}} {{name}}, a {{remoteType}} with the same name already exists, please select a policy:",
+  "Rename Text {{type}} {{action}}": "Keep both, auto rename the new {{type}}",
+  "Replace Text {{type}} {{remoteType}} {{action}}": "Replace, the new {{type}} will replace the original {{remoteType}}.",
+  "Skip Text {{type}} {{action}}": "Skip，the {{type}} will be skipped.",
+  "Merge Text {{action}}": "Merge，keep all, the file with conflict name will be renamed.",
+  "Overwrite Text {{action}}": "Overwrite, the file with conflict name will replace the original file.",
+  "Default Conflict Title {{type}} {{name}} {{action}}": "A {{type}} named '{{name}}' already exists, please select a policy:",
+  "Alt Conflict Title {{type}} {{name}} {{remoteType}} {{action}}": "When {{action}} the {{type}} {{name}}, a {{remoteType}} with the same name already exists, please select a policy:",
   "Apply All Text %d": "Apply to all other similar conflicts(%d more).",
+  "Uploading": "uploading",
+
+  "==== common/Tasks.jsx ====": "",
+  "Failed To Load Task Data": "Failed to load running tasks !",
+  "No Running Tasks": "No Running Tasks.",
+  "Copying": "Copying",
+  "Moving": "Moving",
+  "Task Conflict Text": "Conflict",
+  "Handle": "Handle",
 
   "==== control/AccountApp.jsx ====": "",
   "Your Username %s": "Your username: %s",
@@ -397,7 +406,10 @@
   "Management Title": "Management",
   "Docker": "Docker",
   "Device Management": "Device",
-  "Client Settings": "Settings",
+  "Files": "Files",
+  "Photos": "Photos",
+  "Share Space": "Share",
+  "System Settings": "System",
 
   "==== nav/Navigation.jsx ====": "",
   "Detail": "Detail",
@@ -407,7 +419,7 @@
 
   "==== view/AdminDrives.jsx ====": "",
   "AdminDrives Menu Name": "Public Drive",
-  "AdminDrives Quick Name": "Public",
+  "AdminDrives Quick Name": "Manage",
   "AdminDrives Title": "Public Drive Management",
   "Open": "Open",
   "Close Modify Page": "Hide modify page",
@@ -424,7 +436,7 @@
 
   "==== view/ClientUpdate.jsx ====": "",
   "ClientUpdate Menu Name": "Client update",
-  "ClientUpdate Quick Name": "Update",
+  "ClientUpdate Quick Name": "Client",
 
   "==== view/Device.jsx ====": "",
   "Device Menu Name": "Device Info",
@@ -480,6 +492,10 @@
   "==== view/InstalledApps.jsx ====": "",
   "InstalledApps Menu Name": "Installed Apps",
 
+  "==== view/LanguageApp.jsx ====": "",
+  "Language Menu Name": "Language",
+  "Language Quick Name": "Language",
+
   "==== view/MediaAlbum.jsx ====": "",
   "MediaAlbum Menu Name": "Albums",
 
@@ -526,8 +542,8 @@
   "Jump to Create": "Jump to create",
 
   "==== view/Settings.jsx ====": "",
-  "Settings Menu Name": "Client settings",
-  "Settings Quick Name": "Settings",
+  "Settings Menu Name": "Settings",
+  "Settings Quick Name": "Others",
 
   "==== view/TimeDate.jsx ====": "",
   "TimeDate Menu Name": "Time & Date",
@@ -700,12 +716,29 @@
     "other": "%s items add to the transfer list."
   },
   "%s Ignore Upload Text": {
-    "one": "%s unsupported or skipped item ignored.",
-    "other": "%s unsupported or skipped items ignored."
+    "one": "%s unsupported or ignored item skipped.",
+    "other": "%s unsupported or ignored items skipped."
   },
+  "Add Torrent Failed": "Failed to add new torrent.",
+  "Add Torrent Success": "New torrent added.",
+  "Task Exist": "Task already exist",
   "Connection Lost": "Lost connection to WISNUC.",
   "Read Upload Failed": "Failed to access uploading files.",
 
   "==== node/lib/newDownload.js ====": "",
-  "Read Download Failed": "Failed to access the downloading fold."
+  "Read Download Failed": "Failed to access the downloading fold.",
+
+  "==== download/BTDownload.js ====": "",
+  "BT Download Folder Name": "Download",
+  "Download Folder EEXIST Text": "Failed to create the folder 'Download', this path may already exist",
+  "BT Start Failed": "Failed to start BT download",
+  "No BT Task Text": "Click 'Add' button to add a new BT task.",
+  "Add Torrent": "Add torrent file",
+  "Add Magnet": "Add magnet link",
+  "Add Magnet Label": "Enter the magnet link",
+  "Delete Task Text": "Delete selected task ?",
+  "Add Magnet Failed": "Failed to add magnet link.",
+  "Add Magnet Success": "New task created.",
+  "Finished": "Finished",
+  "Getting Info": "Getting information"
 }

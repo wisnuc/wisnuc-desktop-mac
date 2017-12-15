@@ -2,13 +2,13 @@ import React from 'react'
 import i18n from 'i18n'
 import Debug from 'debug'
 import { ipcRenderer } from 'electron'
-import ActionSettings from 'material-ui/svg-icons/action/settings'
+import LanguageIcon from 'material-ui/svg-icons/action/language'
 import Base from './Base'
-import PluginApp from '../device/PluginApp'
+import LanguageApp from '../control/LanguageApp'
 
-const debug = Debug('view:component:Settings')
+const debug = Debug('view:component:Language')
 
-class Plugin extends Base {
+class Language extends Base {
   constructor(ctx) {
     super(ctx)
   }
@@ -18,15 +18,15 @@ class Plugin extends Base {
   }
 
   menuName() {
-    return i18n.__('Plugin Menu Name')
-  }
-
-  quickName() {
-    return i18n.__('Plugin Quick Name')
+    return i18n.__('Language Menu Name')
   }
 
   menuIcon() {
-    return ActionSettings
+    return LanguageIcon
+  }
+
+  quickName() {
+    return i18n.__('Language Quick Name')
   }
 
   appBarStyle() {
@@ -35,7 +35,7 @@ class Plugin extends Base {
 
   renderContent({ openSnackBar }) {
     return (
-      <PluginApp
+      <LanguageApp
         primaryColor={this.groupPrimaryColor()}
         openSnackBar={openSnackBar}
         ipcRenderer={ipcRenderer}
@@ -44,4 +44,4 @@ class Plugin extends Base {
   }
 }
 
-export default Plugin
+export default Language

@@ -142,7 +142,7 @@ export class UploadMultipleFiles {
     })
 
     this.handle.end((err, res) => {
-      // debug('localUpload this.handle.end', err, res && res.body)
+      console.log('localUpload this.handle.end', err, res && res.body)
       if (err) this.finish(err)
       else if (res && res.statusCode === 200) this.finish(null)
       else this.finish(res.body)
@@ -411,4 +411,8 @@ export const downloadFile = (driveUUID, dirUUID, entryUUID, fileName, downloadPa
       handle.pipe(stream)
     } else callback(null, filePath)
   })
+}
+
+export const uploadTorrent = (dirUUID, filePath, callback) => {
+  const handle = apost('download/torrent').field('dirUUID', dirUUID).attach('torrent', filePath).end(callback)
 }

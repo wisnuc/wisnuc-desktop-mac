@@ -1,8 +1,10 @@
 import React from 'react'
 import i18n from 'i18n'
+import { ipcRenderer } from 'electron'
 
 import ActionSwapVerticalCircle from 'material-ui/svg-icons/action/swap-vertical-circle'
 import BTDownload from '../download/BTDownload'
+import { BTDownloadIcon } from '../common/Svg'
 import Base from './Base'
 
 class Download extends Base {
@@ -43,7 +45,7 @@ class Download extends Base {
   }
 
   menuIcon() {
-    return ActionSwapVerticalCircle
+    return BTDownloadIcon
   }
 
   quickName() {
@@ -69,7 +71,7 @@ class Download extends Base {
   renderTitle({ style }) {
     return (
       <div style={Object.assign({}, style, { marginLeft: 184 })}>
-        { i18n.__('Download Title %s', (this.state.tasks && this.state.tasks.length) || 0) }
+        { i18n.__('Download Title %s', (this.state.tasks && this.state.tasks.running.length) || 0) }
       </div>
     )
   }
@@ -78,11 +80,13 @@ class Download extends Base {
     return (
       <div style={{ position: 'relative', width: '100%', height: '100%' }}>
         <BTDownload
+          ipcRenderer={ipcRenderer}
           navToDrive={navToDrive}
-          tasks={this.state.tasks}
+          tasks={this.state.tasks ? this.state.tasks.running : []}
           apis={this.ctx.props.apis}
           openSnackBar={openSnackBar}
           primaryColor={this.groupPrimaryColor()}
+          selectedDevice={this.ctx.props.selectedDevice}
         />
       </div>
     )

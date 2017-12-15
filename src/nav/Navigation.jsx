@@ -14,6 +14,7 @@ import { sharpCurve, sharpCurveDuration, sharpCurveDelay } from '../common/motio
 
 import NavDrawer from './NavDrawer'
 import QuickNav from './QuickNav'
+import Tasks from '../common/Tasks'
 
 import Home from '../view/Home'
 import Public from '../view/Public'
@@ -34,6 +35,7 @@ import Networking from '../view/Networking'
 import TimeDate from '../view/TimeDate'
 import FanControl from '../view/FanControl'
 import ClientUpdate from '../view/ClientUpdate'
+import Language from '../view/Language'
 import Settings from '../view/Settings'
 import Power from '../view/Power'
 import Download from '../view/Download'
@@ -56,7 +58,7 @@ class NavViews extends React.Component {
     // this.install('physical', Physical)
     this.install('transmission', Transmission)
 
-    // this.install('download', Download)
+    this.install('download', Download)
     this.install('finishedList', FinishedList)
 
     this.install('media', Media)
@@ -76,17 +78,19 @@ class NavViews extends React.Component {
     this.install('networking', Networking)
     this.install('timeDate', TimeDate)
     this.install('fanControl', FanControl)
-    this.install('firmwareUpdate', FirmwareUpdate)
     this.install('power', Power)
 
-    this.install('clientSettings', Settings)
+    this.install('language', Language)
     this.install('clientUpdate', ClientUpdate)
+    this.install('firmwareUpdate', FirmwareUpdate)
+    this.install('clientSettings', Settings)
 
 
     Object.assign(this.state, {
       nav: null,
       showDetail: false,
       openDrawer: false,
+      showTasks: false,
       snackBar: '',
       conflicts: null
     })
@@ -96,6 +100,37 @@ class NavViews extends React.Component {
     this.openDrawerBound = this.openDrawer.bind(this)
     this.openSnackBarBound = this.openSnackBar.bind(this)
     this.navToDriveBound = this.navToDrive.bind(this)
+
+    this.openMovePolicy = (data) => {
+      this.setState({ conflicts: data })
+    }
+
+    this.handleTask = (uuid, response, conflicts) => {
+      console.log('this.handleTask', uuid, response, conflicts)
+      conflicts.forEach((c, index) => {
+        let policy
+        switch (response[index]) {
+          case 'rename':
+            policy = ['rename', 'rename']
+            break
+          case 'replace':
+            policy = ['replace', 'replace']
+            break
+          case 'skip':
+            policy = ['skip', 'skip']
+            break
+          case 'merge':
+            policy = ['keep', null]
+            break
+          case 'overwrite':
+            policy = ['keep', null]
+            break
+          default:
+            policy = [null, null]
+        }
+        this.props.apis.pureRequest('handleTask', { taskUUID: uuid, nodeUUID: c.nodeUUID, policy })
+      })
+    }
   }
 
   install(name, View) {
@@ -117,11 +152,14 @@ class NavViews extends React.Component {
 
   navTo(nav, target) {
     // debug('navTo', nav, target, this.state.nav)
-    if (nav === this.state.nav) return
-    this.setState({ nav, openDrawer: false, showDetail: false })
-    if (this.state.nav) this.views[this.state.nav].navLeave()
-    this.props.setPalette(this.views[nav].primaryColor(), this.views[nav].accentColor())
-    this.views[nav].navEnter(target)
+    if (nav === this.state.nav) {
+      this.setState({ openDrawer: false })
+    } else {
+      this.setState({ nav, openDrawer: false, showDetail: false })
+      if (this.state.nav) this.views[this.state.nav].navLeave()
+      this.props.setPalette(this.views[nav].primaryColor(), this.views[nav].accentColor())
+      this.views[nav].navEnter(target)
+    }
   }
 
   navToDrive(driveUUID, dirUUID) {
@@ -149,8 +187,9 @@ class NavViews extends React.Component {
     return this.state.showDetail
   }
 
-  openSnackBar(message) {
-    this.setState({ snackBar: message })
+  openSnackBar(message, options) {
+    if (options && options.showTasks) this.setState({ showTasks: true, snackBar: message })
+    else this.setState({ snackBar: message })
   }
 
   currentView() {
@@ -199,7 +238,7 @@ class NavViews extends React.Component {
           hasQuickNavs && navGroupList.map((key) => {
             const noRender = <div key={`quicknav-${key}`} />
             if ((!ws215i || !isAdmin) && key === 'fanControl') return noRender
-            if (!isAdmin && (key === 'firmwareUpdate' || key === 'power')) return noRender
+            if (!isAdmin && (['firmwareUpdate', 'power', 'adminUsers', 'adminDrives'].includes(key))) return noRender
             if (isCloud && ['device', 'networking', 'timeDate', 'fanControl', 'power', 'plugin'].includes(key)) return noRender
             return (
               <QuickNav
@@ -339,9 +378,28 @@ class NavViews extends React.Component {
           { view.renderToolBar({ style: toolBarStyle }) }
 
           {/* global notification button */}
-          <IconButton>
-            <SocialNotifications color={view.appBarStyle() === 'light' ? 'rgba(0,0,0,0.54)' : 'rgba(255,255,255,0.5)'} />
-          </IconButton>
+          <div style={{ width: 48, height: 48, position: 'relative' }} >
+            <div
+              style={{
+                position: 'absolute',
+                top: 4,
+                left: 4,
+                width: 40,
+                height: 40,
+                backgroundColor: '#FFF',
+                borderRadius: 20,
+                opacity: this.state.showTasks ? 0.3 : 0,
+                transition: 'opacity 300ms'
+              }}
+            />
+            <IconButton>
+              <SocialNotifications
+                color={view.appBarStyle() === 'light' ? 'rgba(0,0,0,0.54)' : '#FFF'}
+                onTouchTap={() => this.setState({ showTasks: !this.state.showTasks })}
+                style={{ position: 'absolute' }}
+              />
+            </IconButton>
+          </div>
 
           {/* optional toggle detail button */}
           { this.renderDetailButton() }
@@ -389,25 +447,8 @@ class NavViews extends React.Component {
   render() {
     if (!this.state.nav) return null
 
-    const style = {
-      width: '100%',
-      height: '100%',
-      display: 'flex',
-      justifyContent: 'space-between',
-      overflow: 'hidden'
-    }
-
     const view = this.views[this.state.nav]
     const prominent = view.prominent()
-    const cardTitleStyle = {
-      height: 64,
-      display: 'flex',
-      alignItems: 'center',
-      color: 'rgba(0,0,0,0.54)',
-      fontSize: 20,
-      fontWeight: 500,
-      flexWrap: 'wrap'
-    }
 
     /* is cloud ? */
     let isCloud = false
@@ -415,14 +456,11 @@ class NavViews extends React.Component {
     if (token && token.data && token.data.stationID) isCloud = true
 
     return (
-      <div style={style}>
-
+      <div style={{ width: '100%', height: '100%', display: 'flex', justifyContent: 'space-between', overflow: 'hidden' }} >
         {/* left frame */}
         <div style={{ height: '100%', position: 'relative', flexGrow: 1 }}>
-
           { this.renderAppBar() }
           { this.renderAppBarShadow() }
-
           {/* content + shortcut container */}
           <div
             style={{
@@ -477,9 +515,21 @@ class NavViews extends React.Component {
                 primaryColor={this.currentView().primaryColor()}
                 data={this.state.conflicts}
                 ipcRenderer={ipcRenderer}
+                handleTask={this.handleTask}
               />
           }
         </DialogOverlay>
+
+        {/* Tasks */}
+        {
+          this.state.showTasks &&
+            <Tasks
+              apis={this.props.apis}
+              onRequestClose={() => this.setState({ showTasks: false })}
+              showDetail={this.state.showDetail}
+              openMovePolicy={this.openMovePolicy}
+            />
+        }
       </div>
     )
   }
