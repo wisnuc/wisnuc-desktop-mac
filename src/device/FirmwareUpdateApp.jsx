@@ -7,7 +7,7 @@ import CheckIcon from 'material-ui/svg-icons/navigation/check'
 import { green500, orange500, grey500 } from 'material-ui/styles/colors'
 import FlatButton from '../common/FlatButton'
 import DialogOverlay from '../common/DialogOverlay'
-import ErrorBox from '../login/ErrorBox'
+import ErrorBox from '../common/ErrorBox'
 
 const compareVerison = (a, b) => {
   const aArray = a.split('.')
@@ -283,7 +283,7 @@ class Firm extends React.PureComponent {
       <div>
         <div style={{ display: 'flex', width: '100%', alignItems: 'center' }}>
           <div style={{ flex: '0 0 24px' }} />
-          <div style={{ flex: '0 0 56px' }} >
+          <div style={{ flex: '0 0 56px', display: 'flex', alignItems: 'center' }} >
             <UpdateIcon color={this.props.primaryColor} />
           </div>
           <div style={{ width: '100%' }}>
@@ -316,8 +316,8 @@ class Firm extends React.PureComponent {
     if (!firm && !error) return this.renderLoading()
 
     return (
-      <div style={{ height: '100%', marginTop: 16 }}>
-        <div style={{ height: 16 }} />
+      <div style={{ height: '100%', margin: 16 }}>
+        <div style={{ height: 24 }} />
         { error ? this.renderError() : this.renderFirm(firm) }
         {/* dialog */}
         <DialogOverlay open={!!this.state.confirm} >

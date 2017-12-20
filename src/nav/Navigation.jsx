@@ -18,6 +18,7 @@ import Tasks from '../common/Tasks'
 
 import Home from '../view/Home'
 import Public from '../view/Public'
+import Share from '../view/Share'
 import Physical from '../view/Physical'
 import Transmission from '../view/Transmission'
 
@@ -28,14 +29,12 @@ import Account from '../view/Account'
 import Docker from '../view/Docker'
 import InstalledApps from '../view/InstalledApps'
 import AdminUsers from '../view/AdminUsers'
-import AdminDrives from '../view/AdminDrives'
 import Device from '../view/Device'
 import FirmwareUpdate from '../view/FirmwareUpdate'
 import Networking from '../view/Networking'
 import TimeDate from '../view/TimeDate'
 import FanControl from '../view/FanControl'
 import ClientUpdate from '../view/ClientUpdate'
-import Language from '../view/Language'
 import Settings from '../view/Settings'
 import Power from '../view/Power'
 import Download from '../view/Download'
@@ -54,6 +53,7 @@ class NavViews extends React.Component {
     this.views = {}
 
     this.install('home', Home)
+    this.install('share', Share)
     this.install('public', Public)
     // this.install('physical', Physical)
     this.install('transmission', Transmission)
@@ -72,19 +72,16 @@ class NavViews extends React.Component {
 
     this.install('account', Account)
     this.install('adminUsers', AdminUsers)
-    this.install('adminDrives', AdminDrives)
     this.install('device', Device)
-    // this.install('plugin', Plugin)
     this.install('networking', Networking)
     this.install('timeDate', TimeDate)
     this.install('fanControl', FanControl)
     this.install('power', Power)
 
-    this.install('language', Language)
-    this.install('clientUpdate', ClientUpdate)
-    this.install('firmwareUpdate', FirmwareUpdate)
     this.install('clientSettings', Settings)
-
+    this.install('plugin', Plugin)
+    this.install('firmwareUpdate', FirmwareUpdate)
+    this.install('clientUpdate', ClientUpdate)
 
     Object.assign(this.state, {
       nav: null,

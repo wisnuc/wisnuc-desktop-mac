@@ -189,7 +189,7 @@ class NavDrawer extends React.Component {
           text={i18n.__('Share Space')}
           primaryColor={primaryColor}
           selected={views[nav].navGroup() === 'public'}
-          onTouchTap={() => navTo('public')}
+          onTouchTap={() => navTo('share')}
         />
 
         <MenuItem
@@ -230,7 +230,7 @@ class NavDrawer extends React.Component {
         />
 
         {
-          isAdmin && <MenuItem
+          isAdmin && !this.props.isCloud && <MenuItem
             icon={ActionDns}
             text={i18n.__('Device Management')}
             primaryColor={primaryColor}
@@ -244,7 +244,7 @@ class NavDrawer extends React.Component {
           text={i18n.__('System Settings')}
           primaryColor={primaryColor}
           selected={views[nav].navGroup() === 'settings'}
-          onTouchTap={() => navTo('language')}
+          onTouchTap={() => navTo('clientSettings')}
         />
 
         <div style={{ height: 4 }} />

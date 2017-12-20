@@ -172,8 +172,12 @@ class Fruitmix extends EventEmitter {
         break
 
       case 'updatePassword':
-        if (this.stationID) {
+        if (this.stationID) { // connecting via Cloud, reset password
           r = this.aput(`users/${this.userUUID}/password`, { password: args.newPassword })
+        } if (args.stationID) { // login via WeChat and connecting via LAN, rest password
+          const url = `${cloudAddress}/c/v1/stations/${args.stationID}/json`
+          const resource = new Buffer(`/users/${this.userUUID}/password`).toString('base64')
+          r = request.post(url).set('Authorization', args.token).send({ resource, method: 'PUT', password: args.newPassword })
         } else {
           r = request
             .put(`http://${this.address}:3000/users/${this.userUUID}/password`, { password: args.newPassword })
@@ -331,6 +335,19 @@ class Fruitmix extends EventEmitter {
         r = this.apatch(`download/${args.id}`, { op: args.op })
         break
 
+      /* Plugin API */
+      case 'samba':
+        r = this.aget('features/samba/status')
+        break
+
+      case 'dlna':
+        r = this.aget('features/dlna/status')
+        break
+
+      case 'bt':
+        r = this.aget('download/switch')
+        break
+
       default:
         break
     }
@@ -404,6 +421,14 @@ class Fruitmix extends EventEmitter {
           guid: args.guid,
           state: args.state
         })
+        break
+
+      case 'handlePlugin':
+        r = this.apost(`features/${args.type}/${args.action}`)
+        break
+
+      case 'switchBT':
+        r = this.apatch('download/switch', { op: args.op })
         break
 
       default:
