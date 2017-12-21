@@ -153,7 +153,9 @@ class Home extends Base {
           const entryUUID = entries[selected[i]].uuid
           op.push({ driveUUID, dirUUID, entryName, entryUUID })
         }
-        await this.ctx.props.apis.requestAsync('deleteDirOrFile', op)
+        for (let j = 0; j <= (op.length - 1) / 512; j++) { // delete no more than 512 files per post
+          await this.ctx.props.apis.requestAsync('deleteDirOrFile', op.filter((a, i) => (i >= j * 512) && (i < (j + 1) * 512)))
+        }
       }
 
       if (this.state.path[this.state.path.length - 1].uuid === dirUUID) {
@@ -556,11 +558,14 @@ class Home extends Base {
               <div>
                 { !this.ctx.props.selectedDevice.token.data.stationID &&
                   <div>
-                    <MenuItem
-                      leftIcon={<ShareIcon style={{ height: 20, width: 20, marginTop: 6 }} />}
-                      primaryText={i18n.__('Share to Public')}
-                      onTouchTap={() => this.toggleDialog('share')}
-                    />
+                    {
+                      this.title !== i18n.__('Share Title') &&
+                        <MenuItem
+                          leftIcon={<ShareIcon style={{ height: 20, width: 20, marginTop: 6 }} />}
+                          primaryText={i18n.__('Share to Public')}
+                          onTouchTap={() => this.toggleDialog('share')}
+                        />
+                    }
                     <MenuItem
                       leftIcon={<CopyIcon style={{ height: 20, width: 20, marginTop: 6 }} />}
                       primaryText={i18n.__('Copy to')}
