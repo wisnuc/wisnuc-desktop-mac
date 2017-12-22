@@ -239,7 +239,7 @@ class NavViews extends React.Component {
             const noRender = <div key={`quicknav-${key}`} />
             if ((!ws215i || !isAdmin) && key === 'fanControl') return noRender
             if (!isAdmin && (['firmwareUpdate', 'power', 'adminUsers', 'adminDrives'].includes(key))) return noRender
-            if (isCloud && ['device', 'networking', 'timeDate', 'fanControl', 'power', 'plugin'].includes(key)) return noRender
+            if (isCloud && ['device', 'networking', 'timeDate', 'fanControl', 'power', 'plugin', 'firmwareUpdate'].includes(key)) return noRender
             if (key === 'transmission' || key === 'transmission2') return (
               <TransNav
                 key={`quicknav-${key}`}
@@ -402,7 +402,7 @@ class NavViews extends React.Component {
                 transition: 'opacity 300ms'
               }}
             />
-            <IconButton>
+            <IconButton tooltip={i18n.__('Tasks')} tooltipStyles={{ marginTop: !view.prominent() ? -12 : undefined }}>
               <TasksIcon
                 color={view.appBarStyle() === 'light' ? 'rgba(0,0,0,0.54)' : '#FFF'}
                 onTouchTap={() => this.setState({ showTasks: !this.state.showTasks })}
