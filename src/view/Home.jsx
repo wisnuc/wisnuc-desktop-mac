@@ -39,6 +39,7 @@ class Home extends Base {
   constructor(ctx) {
     super(ctx)
 
+    this.type = 'home'
     this.title = i18n.__('Home Title')
     /* handle select TODO */
     this.select = new ListSelect(this)
@@ -256,27 +257,23 @@ class Home extends Base {
     })
   }
 
-  updateState(listNavDir) {
-    if (listNavDir === this.state.listNavDir && !this.force) return
+  willReceiveProps(nextProps) {
+    this.preValue = this.state.listNavDir
+    this.handleProps(nextProps.apis, ['listNavDir'])
 
-    let { path, entries } = listNavDir
+    /* set force === true  to update sortType forcely */
+    if (this.preValue === this.state.listNavDir && !this.force) return
 
-    /* sort enries */
-    entries = [...entries].sort((a, b) => sortByType(a, b, this.state.sortType))
-
+    const { path, entries, counter } = this.state.listNavDir
     const select = this.select.reset(entries.length)
-    const state = { select, listNavDir, path, entries, loading: false }
+
+    if (Array.isArray(path) && path[0]) path[0].type = this.type
 
     this.force = false
-    this.setState(state)
-  }
-
-  willReceiveProps(nextProps) {
-    // console.log('home', nextProps)
-    if (!nextProps.apis || !nextProps.apis.listNavDir) return
-    const listNavDir = nextProps.apis.listNavDir
-    if (listNavDir.isPending() || listNavDir.isRejected()) return
-    this.updateState(listNavDir.value())
+    /* sort entries, reset select, stop loading */
+    this.setState({
+      path, select, loading: false, entries: [...entries].sort((a, b) => sortByType(a, b, this.state.sortType)), counter
+    })
   }
 
   navEnter(target) {
@@ -292,6 +289,18 @@ class Home extends Base {
 
   navLeave() {
     this.isNavEnter = false
+    this.setState({
+      contextMenuOpen: false,
+      contextMenuY: -1,
+      contextMenuX: -1,
+      createNewFolder: false,
+      rename: false,
+      delete: false,
+      move: false,
+      copy: false,
+      share: false,
+      loading: false
+    })
   }
 
   navGroup() {
@@ -397,12 +406,14 @@ class Home extends Base {
 
   renderDetail({ style }) {
     if (!this.state.entries) return (<div />)
+    console.log('renderDetail', this.state)
     return (
       <div style={style}>
         {
           this.state.entries.length ?
             <FileDetail
               detailIndex={this.select.state.selected}
+              counter={this.state.counter}
               entries={this.state.entries}
               path={this.state.path}
               ipcRenderer={ipcRenderer}

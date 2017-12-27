@@ -1,14 +1,9 @@
 import React from 'react'
 import i18n from 'i18n'
-import Radium from 'radium'
-import Debug from 'debug'
 import { ipcRenderer } from 'electron'
 import { TweenMax } from 'gsap'
 import { IconButton } from 'material-ui'
-import { blue800, indigo700, indigo500, teal500 } from 'material-ui/styles/colors'
 import PhotoIcon from 'material-ui/svg-icons/image/photo'
-import FileCreateNewFolder from 'material-ui/svg-icons/file/create-new-folder'
-import AddAPhoto from 'material-ui/svg-icons/image/add-to-photos'
 import NavigationMenu from 'material-ui/svg-icons/navigation/menu'
 
 import Base from './Base'
@@ -16,14 +11,7 @@ import PhotoApp from '../photo/PhotoApp'
 import { formatDate } from '../common/datetime'
 import FlatButton from '../common/FlatButton'
 
-const debug = Debug('component:viewModel:Media: ')
-const parseDate = (date) => {
-  if (!date) return 0
-  const a = date.replace(/:|\s/g, '')
-  return parseInt(a, 10)
-}
 const getName = (photo) => {
-  console.log('getName', photo)
   if (!photo.date && !photo.datetime) {
     return `IMG_UnkownDate-${photo.hash.slice(0, 5).toUpperCase()}-PC.${photo.m}`
   }
@@ -39,11 +27,52 @@ class Media extends Base {
     super(ctx)
     this.state = {
       media: null,
-      preValue: [],
+      blacklist: null,
       selectedItems: [],
       shiftHoverItems: [],
       uploadMedia: false,
       shift: false
+    }
+
+    this.preMedia = null
+    this.preBL = null
+    this.value = null
+
+    this.processMedia = (media, blacklist) => {
+      // console.log('processMedia start', (new Date()).getTime() - this.timeFlag)
+      /* no data */
+      if (!Array.isArray(media) || !Array.isArray(blacklist)) return null
+
+      /* data not change */
+      if (media === this.preMedia && blacklist === this.preBL && this.value) return this.value
+
+      /* store data */
+      this.preMedia = media
+      this.preBL = blacklist
+
+      const removeBlacklist = (m, l) => {
+        if (!m.length || !l.length) return m
+        const map = new Map()
+        m.filter(item => !!item.hash).forEach(d => map.set(d.hash, d))
+        l.forEach(b => map.delete(b))
+        return [...map.values()]
+      }
+
+      /* remove photos without hash and filter media by blacklist */
+      this.value = removeBlacklist(media, blacklist)
+
+      /* formate date */
+      this.value.forEach((v) => {
+        let date = v.date || v.datetime
+        if (!date || date.search(/:/g) !== 4 || date.search(/^0/) > -1) date = ''
+        v.date = date
+      })
+
+      /* sort photos by date */
+      this.value.sort((prev, next) => next.date.localeCompare(prev.date))
+
+      console.log('processMedia finished', (new Date()).getTime() - this.timeFlag)
+      return this.value
     }
 
     this.memoizeValue = { currentDigest: '', currentScrollTop: 0 }
@@ -269,14 +298,12 @@ class Media extends Base {
         this.firstSelect = false
       }
       const hadDigest = this.state.selectedItems.findIndex(item => item === digest) >= 0
-      // debug('this.addListToSelection this.state.selectedItems', this.state.selectedItems, digest, hadDigest)
       if (!hadDigest) {
         this.setState({ selectedItems: [...this.state.selectedItems, digest] })
       }
     }
 
     this.removeListToSelection = (digest) => {
-      // debug('this.removeListToSelection this.state.selectedItems', this.state.selectedItems)
       const hadDigest = this.state.selectedItems.findIndex(item => item === digest) >= 0
       if (hadDigest) {
         const index = this.state.selectedItems.findIndex(item => item === digest)
@@ -299,18 +326,15 @@ class Media extends Base {
       let shiftHoverPhotos = this.state.media.slice(lastSelectIndex, hoverIndex + 1)
 
       if (hoverIndex < lastSelectIndex) shiftHoverPhotos = this.state.media.slice(hoverIndex, lastSelectIndex + 1)
-      // debug('this.hover', digest, lastSelect, lastSelectIndex, hoverIndex, shiftHoverPhotos, this.state.shiftHoverItems)
       this.setState({ shiftHoverItems: shiftHoverPhotos.map(photo => photo.hash) })
     }
 
     this.getShiftStatus = (event) => {
-      // debug('this.getShiftStatus', event.shiftKey)
       if (event.shiftKey === this.state.shift) return
       this.setState({ shift: event.shiftKey })
     }
 
     this.startDownload = () => {
-      // debug('this.startDownload', this.state.selectedItems, this.memoizeValue)
       const list = this.state.selectedItems.length
         ? this.state.selectedItems
         : [this.memoizeValue.downloadDigest]
@@ -337,7 +361,6 @@ class Media extends Base {
     }
 
     this.hideMedia = (show) => { // show === true ? show media : hide media
-      debug('this.hideMedia', this.state.selectedItems)
       const txt = show ? i18n.__('Retrieve') : i18n.__('Hide')
       const list = this.state.selectedItems.length
         ? this.state.selectedItems
@@ -361,11 +384,9 @@ class Media extends Base {
         dirUUID: driveUUID,
         dirname: i18n.__('Media Folder Name')
       })
-      debug('this.uploadMediaAsync data', data)
       const dirUUID = stationID ? data.uuid : data[0].data.uuid
       const newData = await this.ctx.props.apis.requestAsync('mkdir', { driveUUID, dirUUID, dirname: i18n.__('Media Folder From PC') })
       const targetUUID = stationID ? newData.uuid : newData[0].data.uuid
-      debug('this.uploadMediaAsync newdata', newData)
       ipcRenderer.send('UPLOADMEDIA', { driveUUID, dirUUID: targetUUID })
     }
 
@@ -382,43 +403,15 @@ class Media extends Base {
     }
   }
 
-  setState(props) {
-    this.state = Object.assign({}, this.state, props)
-    this.emit('updated', this.state)
-  }
-
   willReceiveProps(nextProps) {
-    console.log('media nextProps', nextProps)
-    if (!nextProps.apis || !nextProps.apis.media || !nextProps.apis.blacklist) return
-    const media = nextProps.apis.media
-    const blacklist = nextProps.apis.blacklist
-    if (media.isPending() || media.isRejected() || blacklist.isPending() || blacklist.isRejected()) return
-
-    const removeBlacklist = (m, l) => {
-      if (!m.length || !l.length) return m
-      const map = new Map()
-      m.filter(item => !!item.hash).forEach(d => map.set(d.hash, d))
-      l.forEach(b => map.delete(b))
-      return [...map.values()]
-    }
-
-    const preValue = media.value()
-    const blValue = blacklist.value()
-
-    if (preValue !== this.state.preValue || blValue !== this.state.blValue) {
-      /* remove photos without hash and filter media by blacklist */
-      const value = removeBlacklist(preValue, blValue)
-      /* sort photos by date */
-      value.sort((prev, next) => (parseDate(next.date || next.datetime) - parseDate(prev.date || prev.datetime)) || (
-        parseInt(`0x${next.hash}`, 16) - parseInt(`0x${prev.hash}`, 16)))
-
-      this.setState({ preValue, media: value, blValue })
-    }
+    this.handleProps(nextProps.apis, ['blacklist', 'media'])
+    this.media = this.processMedia(this.state.media, this.state.blacklist)
   }
 
   navEnter() {
-    this.ctx.props.apis.request('media')
+    this.timeFlag = (new Date()).getTime()
     this.ctx.props.apis.request('blacklist')
+    this.ctx.props.apis.request('media')
   }
 
   navLeave() {
@@ -480,6 +473,7 @@ class Media extends Base {
     return (
       <div style={newStyle}>
         { i18n.__('Media Title') }
+        { !!this.media && ` (${this.media.length})` }
       </div>
     )
   }
@@ -494,7 +488,7 @@ class Media extends Base {
 
   renderContent() {
     return (<PhotoApp
-      media={this.state.media}
+      media={this.media}
       setPhotoInfo={this.setPhotoInfo}
       getTimeline={this.getTimeline}
       ipcRenderer={ipcRenderer}
@@ -513,7 +507,6 @@ class Media extends Base {
       getHoverPhoto={this.getHoverPhoto}
       getShiftStatus={this.getShiftStatus}
       shiftStatus={{ shift: this.state.shift, items: this.state.shiftHoverItems }}
-      apis={this.ctx.props.apis}
     />)
   }
 }

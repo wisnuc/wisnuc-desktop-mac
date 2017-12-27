@@ -19,7 +19,7 @@ i18n.configure({
 	updateFiles: false,
   locales: ['en-US', 'zh-CN'],
   directory: remote.require('path').resolve(remote.app.getAppPath(), 'locales'),
-  defaultLocale: lang === 'zh-CN' ? 'zh-CN' : 'en-US'
+  defaultLocale: /zh/.test(lang) ? 'zh-CN' : 'en-US'
 })
 
 /* required by Material UI */
@@ -46,5 +46,6 @@ ipcRenderer.on('CONFIG_UPDATE', (event, config) => {
   console.log('CONFIG_UPDATE', config)
   global.config = config
   if (config.global && config.global.locales) i18n.setLocale(config.global.locales)
+  else i18n.setLocale(/zh/.test(lang) ? 'zh-CN' : 'en-US')
   render()
 })

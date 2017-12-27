@@ -20,13 +20,11 @@ import { TasksIcon } from '../common/Svg'
 import Home from '../view/Home'
 import Public from '../view/Public'
 import Share from '../view/Share'
-import Physical from '../view/Physical'
 import Transmission from '../view/Transmission'
 import Transmission2 from '../view/Transmission2'
 
 import Media from '../view/Media'
 import Assistant from '../view/Assistant'
-import Trash from '../view/Trash'
 import Account from '../view/Account'
 import Docker from '../view/Docker'
 import InstalledApps from '../view/InstalledApps'
@@ -57,7 +55,6 @@ class NavViews extends React.Component {
     this.install('home', Home)
     this.install('share', Share)
     this.install('public', Public)
-    // this.install('physical', Physical)
     this.install('transmission', Transmission)
     this.install('transmission2', Transmission2)
 
@@ -66,9 +63,6 @@ class NavViews extends React.Component {
 
     this.install('media', Media)
     this.install('assistant', Assistant)
-    // this.install('mediaAlbum', MediaAlbum)
-
-    this.install('trash', Trash)
 
     this.install('docker', Docker)
     this.install('installedApps', InstalledApps)
@@ -166,6 +160,7 @@ class NavViews extends React.Component {
     const drives = this.props.apis.drives.data // no drives ?
     const drive = drives.find(d => d.uuid === driveUUID)
     if (drive.tag === 'home') this.navTo('home', { driveUUID, dirUUID })
+    else if (drive.tag === 'built-in') this.navTo('share', { driveUUID, dirUUID })
     else this.navTo('public', { driveUUID, dirUUID })
   }
 
@@ -489,7 +484,7 @@ class NavViews extends React.Component {
               style={{ width: '100%', height: '100%', paddingLeft: 8, paddingTop: 8, boxSizing: 'border-box' }}
             >
               {
-                view.renderContent({
+                view.render({
                   navTo: this.navTo.bind(this),
                   toggleDetail: this.toggleDetailBound,
                   openSnackBar: this.openSnackBarBound,

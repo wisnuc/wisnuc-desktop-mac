@@ -66,7 +66,7 @@ class Fruitmix extends EventEmitter {
       }
       this.setState(name, curr)
 
-      console.log(`${name} updated`, prev, curr, this[name].isFinished(), typeof next === 'function')
+      // console.log(`${name} updated`, prev, curr, this[name].isFinished(), typeof next === 'function')
 
       if (this[name].isFinished() && next) {
         this[name].isRejected()
@@ -227,6 +227,7 @@ class Fruitmix extends EventEmitter {
       case 'listNavDir':
         r = this.aget(`drives/${args.driveUUID}/dirs/${args.dirUUID}`)
           .query({ metadata: true })
+          .query({ counter: true })
         break
 
       case 'mkdir':

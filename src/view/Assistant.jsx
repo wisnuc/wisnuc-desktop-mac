@@ -8,45 +8,47 @@ import NavigationMenu from 'material-ui/svg-icons/navigation/menu'
 import Media from './Media'
 import AssistantApp from '../photo/AssistantApp'
 
-const parseDate = (date) => {
-  if (!date) return 0
-  const a = date.replace(/:|\s/g, '')
-  return parseInt(a, 10)
-}
-
 /* Extends Media to get medthods about PhotoList */
 class Assistant extends Media {
-  willReceiveProps(nextProps) {
-    console.log('Assistant nextProps', nextProps)
-    if (!nextProps.apis || !nextProps.apis.media || !nextProps.apis.blacklist) return
-    const media = nextProps.apis.media
-    const blacklist = nextProps.apis.blacklist
-    if (media.isPending() || media.isRejected() || blacklist.isPending() || blacklist.isRejected()) return
+  constructor(ctx) {
+    super(ctx)
 
-    const showBlacklist = (m, l) => {
-      const bl = []
-      if (!m.length || !l.length) return bl
-      const map = new Map()
-      m.filter(item => !!item.hash).forEach(d => map.set(d.hash, d))
-      l.forEach((b) => {
-        const p = map.get(b)
-        if (p) bl.push(p)
-      })
-      return bl
-    }
+    this.processMedia = (media, blacklist) => {
+      if (!Array.isArray(media) || !Array.isArray(blacklist)) return null
 
+      /* data not change */
+      if (media === this.preMedia && blacklist === this.preBL && this.value) return this.value
 
-    const preValue = media.value()
-    const blValue = blacklist.value()
+      /* store data */
+      this.preMedia = media
+      this.preBL = blacklist
 
-    if (preValue !== this.state.preValue || blValue !== this.state.blValue) {
+      const showBlacklist = (m, l) => {
+        const bl = []
+        if (!m.length || !l.length) return bl
+        const map = new Map()
+        m.filter(item => !!item.hash).forEach(d => map.set(d.hash, d))
+        l.forEach((b) => {
+          const p = map.get(b)
+          if (p) bl.push(p)
+        })
+        return bl
+      }
+
       /* remove photos without hash and filter media by blacklist */
-      const value = showBlacklist(preValue, blValue)
-      /* sort photos by date */
-      value.sort((prev, next) => (parseDate(next.date || next.datetime) - parseDate(prev.date || next.datetime)) || (
-        parseInt(`0x${next.hash}`, 16) - parseInt(`0x${prev.hash}`, 16)))
+      this.value = showBlacklist(media, blacklist)
 
-      this.setState({ preValue, media: value, blValue })
+      /* formate date */
+      this.value.forEach((v) => {
+        let date = v.date || v.datetime
+        if (!date || date.search(/:/g) !== 4 || date.search(/^0/) > -1) date = ''
+        v.date = date
+      })
+
+      /* sort photos by date */
+      this.value.sort((prev, next) => next.date.localeCompare(prev.date))
+
+      return this.value
     }
   }
 
@@ -89,7 +91,7 @@ class Assistant extends Media {
 
   renderContent() {
     return (<AssistantApp
-      media={this.state.media}
+      media={this.media}
       setPhotoInfo={this.setPhotoInfo}
       getTimeline={this.getTimeline}
       ipcRenderer={ipcRenderer}
@@ -108,7 +110,6 @@ class Assistant extends Media {
       getHoverPhoto={this.getHoverPhoto}
       getShiftStatus={this.getShiftStatus}
       shiftStatus={{ shift: this.state.shift, items: this.state.shiftHoverItems }}
-      apis={this.ctx.props.apis}
     />)
   }
 }

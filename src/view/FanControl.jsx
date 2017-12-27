@@ -14,26 +14,11 @@ class FanControl extends Base {
   }
 
   willReceiveProps(nextProps) {
-    // console.log('fan nextProps', nextProps)
-    if (!nextProps.selectedDevice || !nextProps.selectedDevice.fan) return
-
-    const fan = nextProps.selectedDevice.fan
-    if (fan.isPending() || fan.isRejected()) return
-
-    /* now it's fulfilled */
-    const value = fan.value()
-    this.request = nextProps.selectedDevice.request
-
-    if (value !== this.state.fan) {
-      this.setState({ fan: value })
-    }
+    this.handleProps(nextProps.selectedDevice, ['fan'])
   }
 
   navEnter() {
     this.ctx.props.selectedDevice.request('fan')
-  }
-
-  navLeave() {
   }
 
   navGroup() {
@@ -61,7 +46,7 @@ class FanControl extends Base {
       <Fan
         fan={this.state.fan}
         primaryColor={this.groupPrimaryColor()}
-        request={this.request}
+        request={this.ctx.props.selectedDevice.request}
         openSnackBar={openSnackBar}
         refresh={this.refresh}
       />

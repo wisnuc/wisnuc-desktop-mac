@@ -185,7 +185,7 @@ class NavDrawer extends React.Component {
         />
 
         <MenuItem
-          icon={views.public.menuIcon()}
+          icon={views.share.menuIcon()}
           text={i18n.__('Share Space')}
           primaryColor={primaryColor}
           selected={views[nav].navGroup() === 'public'}
@@ -199,15 +199,6 @@ class NavDrawer extends React.Component {
           selected={nav === 'download'}
           onTouchTap={() => navTo('download')}
         />
-
-        {/* this.renderGroup('physical') */}
-        {/* this.renderGroup('trash') */}
-
-        {/*
-        <div style={{ height: 4 }} />
-        <Divider />
-        <div style={{ height: 4 }} />
-        */}
 
         <SubHeader>{ i18n.__('Management Title') }</SubHeader>
 
