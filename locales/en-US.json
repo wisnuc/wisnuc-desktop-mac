@@ -327,6 +327,10 @@
   "Finished": "Finished",
   "Getting Info": "Getting information",
   "No BT Service Text": "BT service is turned off",
+  "Number of Peers %s": {
+    "one": "%s peer",
+    "other": "%s peers"
+  },
 
   "==== device/DeviceInfo.jsx ====": "",
   "Modify Device Name Failed": "Failed to change device name.",
@@ -355,6 +359,7 @@
   "Fan Speed Text": "Unit: RPM",
 
   "==== device/FirmwareUpdateApp.jsx ====": "",
+  "Check Update": "Check Update",
   "Operation Success": "Operation Success",
   "Current Firmware Version %s": "Current firmware version: %s",
   "No Appifi": "No Appifi installed",
