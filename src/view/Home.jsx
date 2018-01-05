@@ -134,7 +134,6 @@ class Home extends Base {
     }
 
     this.deleteAsync = async () => {
-      debug('this.deleteAsync this.props', this.ctx)
       const entries = this.state.entries
       const selected = this.state.select.selected
       const path = this.state.path
@@ -204,7 +203,7 @@ class Home extends Base {
         this.ctx.props.apis.request('drives') // drive root
       } else this.ctx.props.apis.request('listNavDir', { driveUUID: rUUID, dirUUID: dUUID })
 
-      debug('this.refresh op', op)
+      // debug('this.refresh op', op)
       if (op) this.setState({ scrollTo: op.fileName, loading: !op.noloading })
       else this.setState({ loading: true })
     }
@@ -251,8 +250,9 @@ class Home extends Base {
     }
 
     ipcRenderer.on('driveListUpdate', (e, dir) => {
+      if (this.state.contextMenuOpen) return
+      if (this.state.select && this.state.select.selected && this.state.select.selected.length > 1) return
       const path = this.state.path
-      // console.log(dir, path)
       if (this.isNavEnter && path && path.length && dir.uuid === path[path.length - 1].uuid) this.refresh({ noloading: true })
     })
   }

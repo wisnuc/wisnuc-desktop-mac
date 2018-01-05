@@ -117,7 +117,7 @@ class DetailContainerInline extends React.Component {
     this.dragPosition = { x: 0, y: 0, left: 0, top: 0 }
 
     this.state = {
-      selected: this.props.selectedItems.findIndex(item => item === this.digest) >= 0,
+      selected: this.props.selectedItems.includes(this.digest),
       direction: null,
       hideDialog: false,
       deleteDialog: false,
@@ -132,9 +132,9 @@ class DetailContainerInline extends React.Component {
 
     this.selectPhoto = () => {
       if (this.state.selected) {
-        this.setState({ selected: false }, () => this.props.removeListToSelection(this.digest))
+        this.setState({ selected: false }, () => this.props.removeListToSelection([this.digest]))
       } else {
-        this.setState({ selected: true }, () => this.props.addListToSelection(this.digest))
+        this.setState({ selected: true }, () => this.props.addListToSelection([this.digest]))
       }
     }
 
@@ -291,9 +291,7 @@ class DetailContainerInline extends React.Component {
       this.props.memoize({ currentDigest: this.digest, currentScrollTop: 0, downloadDigest: this.digest })
       this.refContainer.style.overflow = 'hidden'
       this.zoom = 1
-      this.setState({
-        selected: this.props.selectedItems.findIndex(item => item === this.digest) >= 0
-      })
+      this.setState({ selected: this.props.selectedItems.includes(this.digest) })
     }
 
     /* animation */
@@ -329,7 +327,7 @@ class DetailContainerInline extends React.Component {
   }
 
   componentWillMount() {
-    debug('componentWillMount', this.currentIndex, this.props.items.length)
+    // debug('componentWillMount', this.currentIndex, this.props.items.length)
 
     /* init three items' content */
     this.centerItem = this.props.items[this.currentIndex]
@@ -351,7 +349,7 @@ class DetailContainerInline extends React.Component {
   }
 
   shouldComponentUpdate(nextProps, nextState) {
-    debug('shouldComponentUpdate', nextProps.items.length, this.currentIndex)
+    // debug('shouldComponentUpdate', nextProps.items.length, this.currentIndex)
     /* when nextProps.items.length === 0, close this DetailContainer */
     if (!nextProps.items.length || this.currentIndex > nextProps.items.length - 1) {
       setImmediate(this.close) // to avoid infinite loop
@@ -362,7 +360,7 @@ class DetailContainerInline extends React.Component {
 
   componentDidUpdate(prevProps, prevState) {
     if (this.forceChange && prevProps && this.props && prevProps.items.length !== this.props.items.length) {
-      debug('componentDidUpdate', prevProps, this.props)
+      // debug('componentDidUpdate', prevProps, this.props)
       this.currentIndex -= 1
       this.changeIndex('right')
       this.forceChange = false
@@ -394,7 +392,7 @@ class DetailContainerInline extends React.Component {
   }
 
   renderInfo() {
-    debug('renderInfo', this.props.items.length, this.photo)
+    // debug('renderInfo', this.props.items.length, this.photo)
     if (!this.photo) return <div />
     const { date, datetime, model, make, h, w, size, gps, lat, latr, long, longr } = this.photo
 

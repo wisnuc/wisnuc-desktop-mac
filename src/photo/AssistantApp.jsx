@@ -85,20 +85,8 @@ class AssistantApp extends PhotoApp {
               </div> :
             this.props.media.length ?
               <PhotoList
-                style={{
-                  position: 'relative',
-                  marginTop: -7,
-                  width: '100%',
-                  height: '100%',
-                  backgroundColor: '#FFFFFF',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}
-                setPhotoInfo={this.props.setPhotoInfo}
                 media={this.props.media}
                 lookPhotoDetail={this.lookPhotoDetail}
-                getTimeline={this.props.getTimeline}
                 ipcRenderer={this.props.ipcRenderer}
                 addListToSelection={this.props.addListToSelection}
                 removeListToSelection={this.props.removeListToSelection}
