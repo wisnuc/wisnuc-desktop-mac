@@ -1,10 +1,12 @@
 import React from 'react'
 import Debug from 'debug'
 import prettysize from 'prettysize'
-import { CircularProgress, Divider, Toggle, RaisedButton, Menu, MenuItem, Popover } from 'material-ui'
+import { remote } from 'electron'
+import { CircularProgress, Divider, Toggle, RaisedButton, Menu, MenuItem, Popover, TextField } from 'material-ui'
 import InfoIcon from 'material-ui/svg-icons/action/info-outline'
 import LanguageIcon from 'material-ui/svg-icons/action/language'
 import CacheIcon from 'material-ui/svg-icons/action/cached'
+import DownloadIcon from 'material-ui/svg-icons/file/file-download'
 import i18n from 'i18n'
 import FlatButton from '../common/FlatButton'
 import DialogOverlay from '../common/DialogOverlay'
@@ -58,6 +60,14 @@ class SettingsApp extends React.Component {
     this.toggleMenu = (event) => {
       if (!this.state.open && event && event.preventDefault) event.preventDefault()
       this.setState({ open: event !== 'clickAway' && !this.state.open, anchorEl: event.currentTarget })
+    }
+
+    this.openDialog = () => {
+      remote.dialog.showOpenDialog({ properties: ['openDirectory'] }, (filePaths) => {
+        if (!filePaths || !filePaths.length) return
+        const path = filePaths[0]
+        this.props.ipcRenderer.send('SETCONFIG', { downloadPath: path })
+      })
     }
   }
 
@@ -157,20 +167,44 @@ class SettingsApp extends React.Component {
     )
   }
 
+  renderDownloadPath() {
+    const path = global.config.global.downloadPath || global.config.defaultDownload
+    return (
+      <div style={{ height: 56, width: '100%', display: 'flex', alignItems: 'center', marginLeft: 24 }}>
+        <div style={{ width: 40, display: 'flex', alignItems: 'center', marginRight: 8 }}>
+          <DownloadIcon color={this.props.primaryColor} />
+        </div>
+        <div style={{ width: 560, display: 'flex', alignItems: 'center' }}>
+          { i18n.__('Download Path:') }
+          <div style={{ width: 8 }} />
+          <input value={path} style={{ width: 360, border: '1px solid #bfbfbf', borderRadius: '2px', color: '#444', padding: 3 }} />
+        </div>
+        <div style={{ width: 480, display: 'flex', alignItems: 'center', marginLeft: -8 }}>
+          <FlatButton
+            primary
+            disabled={this.state.loading}
+            label={i18n.__('Set Download Path')}
+            onTouchTap={() => this.openDialog()}
+          />
+        </div>
+      </div>
+    )
+  }
+
   render() {
-    debug('render client', this.props, global.config)
+    // debug('render client', this.props, global.config)
     if (!global.config) return <div />
     const { noCloseConfirm, enableSleep } = global.config.global
     const settings = [
       {
-        type: i18n.__('Prevent Sleep Text'),
-        enabled: !enableSleep,
-        func: () => this.toggle('enableSleep')
-      },
-      {
         type: i18n.__('Client Close Text'),
         enabled: !noCloseConfirm,
         func: () => this.toggle('noCloseConfirm')
+      },
+      {
+        type: i18n.__('Prevent Sleep Text'),
+        enabled: !enableSleep,
+        func: () => this.toggle('enableSleep')
       }
     ]
     return (
@@ -183,6 +217,7 @@ class SettingsApp extends React.Component {
         <div style={{ height: 16 }} />
         { this.renderLanguage() }
         { this.renderCacheClean() }
+        { this.renderDownloadPath() }
         { settings.map(op => this.renderRow(op)) }
 
         {/* dialog */}

@@ -11,6 +11,7 @@ import ArrowRight from 'material-ui/svg-icons/hardware/keyboard-arrow-right'
 import sanitize from 'sanitize-filename'
 import FlatButton from '../common/FlatButton'
 import { ShareDisk, ShareIcon } from '../common/Svg'
+import { xcopyMsg } from '../common/msg'
 
 class Row extends React.PureComponent {
   render() {
@@ -234,6 +235,13 @@ class MoveDialog extends React.PureComponent {
       const entries = this.selectedArr.map(e => e.uuid)
       const policies = { dir: ['keep', null] }
 
+      this.xcopyData = {
+        type,
+        srcDir: this.directory,
+        dstDir: node || this.state.path.slice(-1)[0],
+        entries: this.selectedArr
+      }
+
       this.setState({ loading: true })
       this.props.apis.request('copy', { type, src, dst, entries, policies }, this.finish)
     }
@@ -248,6 +256,14 @@ class MoveDialog extends React.PureComponent {
       const dst = { drive: builtIn.uuid, dir: builtIn.uuid }
       const entries = this.selectedArr.map(e => e.uuid)
       const policies = { dir: ['keep', null] }
+
+      this.xcopyData = {
+        type: 'share',
+        srcDir: this.directory,
+        dstDir: builtIn,
+        entries: this.selectedArr
+      }
+
       this.props.apis.request('copy', { type, src, dst, entries, policies }, this.finish)
     }
 
@@ -258,7 +274,7 @@ class MoveDialog extends React.PureComponent {
         this.setState({ loading: false })
         this.closeDialog()
         this.props.refresh()
-        return this.props.openSnackBar(type.concat(i18n.__('+Failed')))
+        return this.props.openSnackBar(type.concat(i18n.__('+Failed')), { showTasks: true })
       }
 
       this.getTaskState(data.uuid).asCallback((err, res) => {
@@ -266,14 +282,13 @@ class MoveDialog extends React.PureComponent {
           this.setState({ loading: false })
           this.closeDialog()
           this.props.refresh()
-          this.props.openSnackBar(type.concat(i18n.__('+Failed')))
+          this.props.openSnackBar(type.concat(i18n.__('+Failed')), { showTasks: true })
         } else {
           this.setState({ loading: false })
           this.closeDialog()
           this.props.refresh()
           let text = 'Working'
-          if (res === 'Finished') text = type.concat(i18n.__('+Success'))
-          if (res === 'Conflict') text = i18n.__('Task Conflict Text')
+          if (res === 'Finished') text = xcopyMsg(this.xcopyData)
           this.props.openSnackBar(text, res !== 'Finished' ? { showTasks: true } : null)
         }
       })
@@ -318,7 +333,7 @@ class MoveDialog extends React.PureComponent {
   /* Button disabled ? */
   getButtonStatus() {
     const { name, uuid, type } = this.state.currentDir
-    console.log('name, uuid, type this.inSameDirectory', name, uuid, type, this.inSameDirectory())
+    // console.log('name, uuid, type this.inSameDirectory', name, uuid, type, this.inSameDirectory())
     const selectedObj = this.state.currentSelectedIndex !== -1 ? this.state.list[this.state.currentSelectedIndex] : null
 
     if (this.state.loading || this.state.cnf) return true

@@ -1,21 +1,24 @@
 import React from 'react'
+import UUID from 'uuid'
 import i18n from 'i18n'
 import Debug from 'debug'
 import { ipcRenderer } from 'electron'
 
 import { Paper, IconButton, Snackbar } from 'material-ui'
 import ActionInfo from 'material-ui/svg-icons/action/info'
+import SocialNotifications from 'material-ui/svg-icons/social/notifications'
 
 import Fruitmix from '../common/fruitmix'
+import { TasksIcon } from '../common/Svg'
 import DialogOverlay from '../common/DialogOverlay'
-import Policy from '../common/Policy'
 import { sharpCurve, sharpCurveDuration, sharpCurveDelay } from '../common/motion'
 
-import NavDrawer from './NavDrawer'
+import Tasks from './Tasks'
+import Policy from './Policy'
 import QuickNav from './QuickNav'
 import TransNav from './TransNav'
-import Tasks from '../common/Tasks'
-import { TasksIcon } from '../common/Svg'
+import NavDrawer from './NavDrawer'
+import Notifications from './Notifications'
 
 import Home from '../view/Home'
 import Public from '../view/Public'
@@ -81,7 +84,15 @@ class NavViews extends React.Component {
     this.install('clientUpdate', ClientUpdate)
 
     Object.assign(this.state, {
+      /*
+      nts: [
+        { id: '123', type: 'firmware', title: '检测到新的固件', body: '点击去安装', action: () => this.navTo('firmwareUpdate') },
+        { id: '321', type: 'box', title: '收到新的文件', body: '点击去查看', action: () => this.navTo('public') }
+      ],
+      */
+      nts: [],
       nav: null,
+      showNotifications: false,
       showDetail: false,
       openDrawer: false,
       showTasks: false,
@@ -125,6 +136,38 @@ class NavViews extends React.Component {
         this.props.apis.pureRequest('handleTask', { taskUUID: uuid, nodeUUID: c.nodeUUID, policy })
       })
     }
+
+    this.removeNts = (nts) => {
+      this.setState({ nts: this.state.nts.filter(nt => !nts.includes(nt)) })
+    }
+
+    this.addNts = (nts) => {
+      this.setState({ nts: [...this.state.nts, ...nts] })
+    }
+
+    this.checkFirmWareAsync = async () => {
+      const hideFirmNoti = global.config && global.config.global && global.config.global.hideFirmNoti
+      if (hideFirmNoti) return
+      await this.props.selectedDevice.pureRequestAsync('checkUpdates')
+      let [WIP, firm] = [true, null]
+      while (WIP) {
+        await Promise.delay(1000)
+        firm = (await this.props.selectedDevice.pureRequestAsync('firm')).body
+        WIP = firm.fetch.state === 'Working'
+      }
+
+      /* find new version */
+      if (firm.appifi.tagName.localeCompare(firm.releases[0].remote.tag_name) > -1) {
+        const nt = {
+          id: UUID.v4(),
+          type: 'firmware',
+          title: i18n.__('New Firmware Version Detected %s', firm.releases[0].remote.tag_name),
+          body: i18n.__('New Firmware Version Detected Text'),
+          action: () => this.navTo('firmwareUpdate', { noMoreCheck: true })
+        }
+        this.addNts([nt])
+      }
+    }
   }
 
   install(name, View) {
@@ -135,6 +178,7 @@ class NavViews extends React.Component {
 
   componentDidMount() {
     this.navTo('home')
+    this.checkFirmWareAsync().catch(e => console.log('checkFirmWareAsync error', e))
     ipcRenderer.send('START_TRANSMISSION')
     ipcRenderer.on('snackbarMessage', (e, message) => this.openSnackBar(message.message))
     ipcRenderer.on('conflicts', (e, args) => this.setState({ conflicts: args }))
@@ -306,6 +350,79 @@ class NavViews extends React.Component {
     )
   }
 
+  renderDialogButton({ type, Icon, tooltip, num }) {
+    const view = this.currentView()
+    return (
+      <div style={{ width: 48, height: 48, position: 'relative' }} >
+        <div
+          style={{
+            position: 'absolute',
+            top: 4,
+            left: 4,
+            width: 40,
+            height: 40,
+            backgroundColor: '#FFF',
+            borderRadius: 20,
+            opacity: this.state[type] ? 0.3 : 0,
+            transition: 'opacity 300ms'
+          }}
+        />
+        <IconButton tooltip={tooltip} tooltipStyles={{ marginTop: !view.prominent() ? -12 : undefined }}>
+          <Icon
+            color={view.appBarStyle() === 'light' ? 'rgba(0,0,0,0.54)' : '#FFF'}
+            onTouchTap={() => this.setState({ [type]: !this.state[type] })}
+            style={{ position: 'absolute', width: 20, height: 20 }}
+          />
+        </IconButton>
+        {
+          num < 100 ?
+            <div
+              style={{
+                position: 'absolute',
+                right: 8,
+                top: 8,
+                width: 16,
+                height: 16,
+                borderRadius: 8,
+                backgroundColor: '#F44336',
+                fontSize: 10,
+                fontWeight: 500,
+                color: '#FFF',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                opacity: num ? 1 : 0,
+                transition: 'all 225ms'
+              }}
+            >
+              { num }
+            </div>
+            : num > 99 ?
+            <div
+              style={{
+                position: 'absolute',
+                right: 0,
+                top: 9,
+                width: 24,
+                height: 16,
+                borderRadius: 8,
+                backgroundColor: '#F44336',
+                fontSize: 10,
+                fontWeight: 500,
+                color: '#FFF',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+            >
+              99+
+            </div>
+            : <div />
+        }
+      </div>
+    )
+  }
+
   renderAppBar() {
     const view = this.currentView()
     let backgroundColor
@@ -321,7 +438,6 @@ class NavViews extends React.Component {
       default:
         break
     }
-
 
     const appBarStyle = {
       position: 'absolute',
@@ -382,32 +498,21 @@ class NavViews extends React.Component {
           {/* context-sensitive toolbar, passing style for component list */}
           { view.renderToolBar({ style: toolBarStyle }) }
 
-          {/* global notification button */}
-          <div style={{ width: 48, height: 48, position: 'relative' }} >
-            <div
-              style={{
-                position: 'absolute',
-                top: 4,
-                left: 4,
-                width: 40,
-                height: 40,
-                backgroundColor: '#FFF',
-                borderRadius: 20,
-                opacity: this.state.showTasks ? 0.3 : 0,
-                transition: 'opacity 300ms'
-              }}
-            />
-            <IconButton tooltip={i18n.__('Tasks')} tooltipStyles={{ marginTop: !view.prominent() ? -12 : undefined }}>
-              <TasksIcon
-                color={view.appBarStyle() === 'light' ? 'rgba(0,0,0,0.54)' : '#FFF'}
-                onTouchTap={() => this.setState({ showTasks: !this.state.showTasks })}
-                style={{ position: 'absolute', width: 20, height: 20 }}
-              />
-            </IconButton>
-          </div>
+          {/* Global tasks button */}
+          { this.renderDialogButton({ type: 'showTasks', Icon: TasksIcon, tooltip: i18n.__('Tasks') }) }
 
           {/* optional toggle detail button */}
           { this.renderDetailButton() }
+
+          {/* Global notification button */}
+          {
+            this.renderDialogButton({
+              type: 'showNotifications',
+              Icon: SocialNotifications,
+              tooltip: i18n.__('Notifications'),
+              num: this.state.nts.length
+            })
+          }
 
           <div style={{ flex: '0 0 12px' }} />
         </div>
@@ -453,7 +558,6 @@ class NavViews extends React.Component {
     if (!this.state.nav) return null
 
     const view = this.views[this.state.nav]
-    const prominent = view.prominent()
 
     /* is cloud ? */
     let isCloud = false
@@ -461,7 +565,16 @@ class NavViews extends React.Component {
     if (token && token.data && token.data.stationID) isCloud = true
 
     return (
-      <div style={{ width: '100%', height: '100%', display: 'flex', justifyContent: 'space-between', overflow: 'hidden' }} >
+      <div
+        style={{
+          width: '100%',
+          height: '100%',
+          display: 'flex',
+          overflow: 'hidden',
+          position: 'relative',
+          justifyContent: 'space-between'
+        }}
+      >
         {/* left frame */}
         <div style={{ height: '100%', position: 'relative', flexGrow: 1 }}>
           { this.renderAppBar() }
@@ -470,9 +583,9 @@ class NavViews extends React.Component {
           <div
             style={{
               width: '100%',
-              height: `calc(100% - ${this.appBarHeight()}px)`,
               display: 'flex',
-              justifyContent: 'space-between'
+              justifyContent: 'space-between',
+              height: `calc(100% - ${this.appBarHeight()}px)`
             }}
           >
 
@@ -509,6 +622,9 @@ class NavViews extends React.Component {
           isCloud={isCloud}
         />
 
+        {/* drag item */}
+        { view.renderDragItems() }
+
         {/* snackBar */}
         { this.renderSnackBar() }
 
@@ -533,6 +649,19 @@ class NavViews extends React.Component {
               onRequestClose={() => this.setState({ showTasks: false })}
               showDetail={this.state.showDetail}
               openMovePolicy={this.openMovePolicy}
+            />
+        }
+
+        {/* Notifications */}
+        {
+          this.state.showNotifications &&
+            <Notifications
+              ipcRenderer={ipcRenderer}
+              removeNts={this.removeNts}
+              apis={this.props.apis}
+              onRequestClose={() => this.setState({ showNotifications: false })}
+              showDetail={this.state.showDetail}
+              nts={this.state.nts}
             />
         }
       </div>

@@ -79,18 +79,10 @@ class FileDetail extends React.PureComponent {
                 key={title}
               >
                 <div style={{ flex: '0 0 112px', fontSize: 14 }} > { title } </div>
-                <div
-                  style={{
-                    fontSize: 14,
-                    flex: '0 0 200px',
-                    color: 'rgba(0, 0, 0, 0.54)',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap'
-                  }}
-                >
-                  { values[index] }
-                </div>
+                <input
+                  defaultValue={values[index]}
+                  style={{ width: 200, border: 0, padding: 3, fontSize: 14, color: 'rgba(0, 0, 0, 0.54)', backgroundColor: '#FAFAFA' }}
+                />
               </div>
             )
           })
@@ -183,7 +175,7 @@ class FileDetail extends React.PureComponent {
   }
 
   renderCounter() {
-    console.log('renderCounter', this.props.counter)
+    // console.log('renderCounter', this.props.counter)
     const c = this.props.counter
     const Titles = [
       i18n.__('Dir Count'),
@@ -206,23 +198,15 @@ class FileDetail extends React.PureComponent {
           {/* header */}
           <div style={{ height: 64, marginLeft: 24 }} >
             <div style={{ height: 16 }} />
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                height: 32,
-                fontSize: 20,
-                fontWeight: 500,
-                color: '#FFFFFF'
-              }}
-            >
+            <div style={{ display: 'flex', alignItems: 'center', height: 32 }} >
               <div style={{ flex: '0 0 24px', display: 'flex', alignItems: 'center' }}>
                 <FileFolder style={{ color: '#FFFFFF' }} />
               </div>
               <div style={{ flex: '0 0 16px' }} />
-              <div style={{ flexGrow: 1 }}>
-                { getPath(this.props.path).split('/').slice(-1)[0] }
-              </div>
+              <input
+                defaultValue={getPath(this.props.path).split('/').slice(-1)[0]}
+                style={{ flexGrow: 1, border: 0, padding: 3, fontSize: 20, fontWeight: 500, backgroundColor: 'transparent', color: '#FFFFFF' }}
+              />
               <div style={{ flex: '0 0 24px' }} />
             </div>
           </div>

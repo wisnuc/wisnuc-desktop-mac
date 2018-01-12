@@ -97,6 +97,7 @@
   "Password Hint": "Please enter the password",
   "Remember Password": "Remember me",
   "Auto Login": "Auto login",
+  "Login": "Login",
 
   "==== login/MaintGuide.jsx ====": "",
   "Test Mount": "Disks are all mounted",
@@ -186,6 +187,14 @@
   "Task Conflict Text": "Conflict",
   "Tasks": "Tasks",
 
+  "==== common/msg.js ====": "",
+  "Moved": "moved",
+  "Copied": "copied",
+  "Shared": "shared",
+  "%s Items Have Been": "%s items have been",
+  "%s Has Been": "%s has been",
+  "xcopyMsg {{action}} {{srcName}} {{dstName}} {{target}}": "{{target}} {{action}} from {{srcName}} to {{dstName}}.",
+
   "==== control/AccountApp.jsx ====": "",
   "Your Username %s": "Your username: %s",
   "Username Text": "This username is used for WISNUC OS as well as Samba.",
@@ -265,10 +274,6 @@
   "Checking Update": "Checking update.",
   "Already LTS Text": "Already latest",
   "Check Update Failed Text": "Failed to check update, please check the network settings or retry later.",
-  "Check More Version": "Check more version",
-  "Client Update": "Client update",
-  "Install New Version Text 1 %s": "The version %s client will be installed.",
-  "Install New Version Text 2": "Recommended with the latest WISNUC system firmware.",
   "Github Download": "Github",
   "Official Download": "Official",
 
@@ -290,6 +295,8 @@
   "en-US": "English",
   "Language Setting": "Language",
   "Global Settings": "Global settings",
+  "Download Path:": "Download location: ",
+  "Set Download Path": "Change",
   "Cache Size": "Cache size: ",
   "Clean": "Clean",
   "Clean Cache": "Clean all cache ?",
@@ -445,6 +452,17 @@
 
   "==== nav/Navigation.jsx ====": "",
   "Detail": "Detail",
+
+  "==== nav/Notifications.jsx ====": "",
+  "Back": "Back",
+  "Clear All Notifications": "Delete all",
+  "No Notifications": "All caught up!",
+  "Notifications": "Notifications",
+  "Settings": "Settings",
+  "Firmware Update": "Firmware update",
+  "Show Notifications From:": "Show notifications from: ",
+  "New Firmware Version Detected %s": "New firmware: %s",
+  "New Firmware Version Detected Text": "Click to update the latest firmware.",
 
   "==== view/Account.jsx ====": "",
   "Account Menu Name": "Account",
@@ -634,7 +652,6 @@
   "Copy": "Copy",
   "Move": "Move",
   "Share": "Share",
-  "+Success": " success",
   "+Failed": " failed",
   "%s To Selected Folder": "%s to selected folder",
   "%s To Current Folder": "%s to current folder",
@@ -653,7 +670,7 @@
 
   "==== file/RenameDialog.jsx ====": "",
   "Rename Failed": "Failed to rename the file or folder.",
-  "Rename Success": "File or folder Renamed.",
+  "Rename Success": "File or folder renamed.",
   "Rename Title": "Rename",
 
   "==== file/RunningTask.jsx ====": "",
@@ -676,7 +693,8 @@
   "Running Task Title %s": "Running (%s)",
   "Resume All": "Resume all",
   "Pause All": "Pause all",
-  "Clear All": "Clear all",
+  "Clear All": "Delete all",
+  "Clear": "Clear",
   "Finished Task Title %s": "Finished (%s)",
   "Clear All Record": "Clear all records",
   "Open Downloads Folder": "Open download folder",
@@ -744,5 +762,9 @@
   "Read Upload Failed": "Failed to access uploading files.",
 
   "==== node/lib/newDownload.js ====": "",
-  "Read Download Failed": "Failed to access the downloading fold."
+  "Read Download Failed": "Failed to access the downloading fold.",
+
+  "==== node/app.js ====": "",
+  "New Client Version Detected": "New WINSUC detected",
+  "New Client Version Detected Text": "Click to download the latest client."
 }

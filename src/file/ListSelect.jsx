@@ -3,6 +3,7 @@ import EventEmitter from 'eventemitter3'
 class ListSelect extends EventEmitter {
   constructor() {
     super()
+    this.dragging = []
     this.state = {
       selected: [],
 
@@ -15,6 +16,9 @@ class ListSelect extends EventEmitter {
       rowColor: this.rowColor.bind(this),
       rowLeading: this.rowLeading.bind(this),
       rowCheck: this.rowCheck.bind(this),
+      rowDrop: this.rowDrop.bind(this),
+      toggleDrag: this.toggleDrag.bind(this),
+      isDrop: this.isDrop.bind(this),
       addByArray: this.addByArray.bind(this)
     }
   }
@@ -167,7 +171,8 @@ class ListSelect extends EventEmitter {
   }
 
   rowColor(index) {
-    if (this.shiftInRange(index) || index === this.state.hover) { return '#EEEEEE' } else if (this.state.selected.includes(index)) { return '#F5F5F5' }
+    if (this.shiftInRange(index) || (index === this.state.hover && !this.dragging.length)) return '#EEEEEE'
+    else if (this.state.selected.includes(index)) return '#F5F5F5'
     return '#FFFFFF'
   }
 
@@ -201,7 +206,18 @@ class ListSelect extends EventEmitter {
     if (this.state.selected.length > 1 && this.state.selected.includes(index)) return 'checked'
     return 'none'
   }
+
+  rowDrop(index) {
+    return index === this.state.hover && this.dragging.length && !this.dragging.includes(index)
+  }
+
+  isDrop() {
+    return this.dragging.length
+  }
+
+  toggleDrag(arr) {
+    this.dragging = arr
+  }
 }
 
 export default ListSelect
-

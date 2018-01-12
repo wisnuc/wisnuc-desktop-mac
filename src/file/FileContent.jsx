@@ -15,7 +15,11 @@ class FileContent extends React.Component {
   constructor(props) {
     super(props)
 
-    this.state = { contextMenu: false }
+    this.state = {
+      seqIndex: -1,
+      loading: false,
+      preview: false
+    }
 
     /* cathc key action */
     this.keyDown = (e) => {
@@ -179,6 +183,7 @@ class FileContent extends React.Component {
     }
 
     this.onScroll = (scrollTop) => {
+      this.props.setScrollTop(scrollTop)
       if (!this.selectBox) return
       const s = this.refSelectBox.style
       const dy = scrollTop - this.preScrollTop
@@ -251,7 +256,7 @@ class FileContent extends React.Component {
     this.selectGrid = (event, data) => {
       if (!this.selectBox) return
       this.data = data || this.data
-      const { scrollTop, allHeight, indexHeightSum, mapData } = this.data
+      const { scrollTop } = this.data
       this.preScrollTop = scrollTop
       this.drawBox(event)
       this.calcGrid(this.data)
@@ -370,6 +375,8 @@ class FileContent extends React.Component {
               selectStart={this.selectStart}
               selectEnd={this.selectEnd}
               selectGrid={this.selectGrid}
+              gridDragStart={this.props.gridDragStart}
+              setGridData={this.props.setGridData}
               onScroll={this.onScroll}
               drop={this.drop}
             />
@@ -383,6 +390,7 @@ class FileContent extends React.Component {
               selectStart={this.selectStart}
               selectEnd={this.selectEnd}
               selectRow={this.selectRow}
+              rowDragStart={this.props.rowDragStart}
               onScroll={this.onScroll}
               drop={this.drop}
             />

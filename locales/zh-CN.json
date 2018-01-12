@@ -97,6 +97,7 @@
   "Password Hint": "请输入密码",
   "Remember Password": "记住密码",
   "Auto Login": "自动登录",
+  "Login": "登录",
 
   "==== login/MaintGuide.jsx ====": "",
   "Test Mount": "是否挂载",
@@ -186,6 +187,14 @@
   "Task Conflict Text": "出现命名冲突",
   "Tasks": "任务",
 
+  "==== common/msg.js ====": "",
+  "Moved": "移动",
+  "Copied": "复制",
+  "Shared": "分享",
+  "%s Items Have Been": "%s个项目已从",
+  "%s Has Been": "%s已从",
+  "xcopyMsg {{action}} {{srcName}} {{dstName}} {{target}}": "{{target}}“{{srcName}}”{{action}}到“{{dstName}}”。",
+
   "==== control/AccountApp.jsx ====": "",
   "Your Username %s": "您当前的用户名为：%s 。",
   "Username Text": "设备登录用户名是系统用户名，也是您登录Samba的用户名。",
@@ -265,10 +274,6 @@
   "Checking Update": "检查更新中...",
   "Already LTS Text": "已是最新稳定版",
   "Check Update Failed Text": "检查更新失败，请检查网络设置或重试！",
-  "Check More Version": "查看更多版本",
-  "Client Update": "客户端升级",
-  "Install New Version Text 1 %s": "将要为您安装版本号为%s的程序。",
-  "Install New Version Text 2": "建议配合最新的WISNUC系统固件使用",
   "Github Download": "Github下载",
   "Official Download": "官网下载",
 
@@ -290,13 +295,15 @@
   "zh-CN": "简体中文",
   "Language Setting": "语言设置",
   "Global Settings": "全局设置",
+  "Download Path:": "下载路径： ",
+  "Set Download Path": "修改",
   "Cache Size": "缓存大小：",
   "Clean": "清理",
   "Clean Cache": "清理所有缓存文件？",
   "Clean Cache Text": "所有缓存的照片原图、缩略图、下载文件都将被删除。",
   "Clean Cache Success": "清理成功",
   "Clean Cache Failed": "清理失败",
-  "Client Close Text": "客户端关闭提示",
+  "Client Close Text": "关闭客户端时显示警告",
   "Prevent Sleep Text": "有传输任务时，阻止电脑进入休眠",
 
   "==== control/WeChatBind.jsx ====": "",
@@ -445,6 +452,17 @@
 
   "==== nav/Navigation.jsx ====": "",
   "Detail": "详情",
+
+  "==== nav/Notifications.jsx ====": "",
+  "Back": "Back",
+  "Clear All Notifications": "全部清除",
+  "No Notifications": "已经看完所有通知！",
+  "Notifications": "通知",
+  "Settings": "设置",
+  "Firmware Update": "固件升级",
+  "Show Notifications From:": "显示以下来源的通知: ",
+  "New Firmware Version Detected %s": "发现新的固件: %s",
+  "New Firmware Version Detected Text": "点击去安装该固件。",
 
   "==== view/Account.jsx ====": "",
   "Account Menu Name": "我",
@@ -634,7 +652,6 @@
   "Copy": "拷贝",
   "Move": "移动",
   "Share": "分享",
-  "+Success": "成功",
   "+Failed": "失败",
   "%s To Selected Folder": "%s至选中文件夹",
   "%s To Current Folder": "%s至当前文件夹",
@@ -676,7 +693,8 @@
   "Running Task Title %s": "传输中（%s）",
   "Resume All": "全部开始",
   "Pause All": "全部暂停",
-  "Clear All": "全部清除",
+  "Clear All": "全部删除",
+  "Clear": "清除",
   "Finished Task Title %s": "已完成（%s）",
   "Clear All Record": "清除记录",
   "Open Downloads Folder": "打开下载文件夹",
@@ -744,5 +762,9 @@
   "Read Upload Failed": "读取上传文件失败",
 
   "==== node/lib/newDownload.js ====": "",
-  "Read Download Failed": "读取下载目录失败"
+  "Read Download Failed": "读取下载目录失败",
+
+  "==== node/app.js ====": "",
+  "New Client Version Detected": "检测到新版本的WISNUC客户端",
+  "New Client Version Detected Text": "点击下载最新的客户端。"
 }
