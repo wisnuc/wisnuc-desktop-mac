@@ -24,7 +24,6 @@ import Home from '../view/Home'
 import Public from '../view/Public'
 import Share from '../view/Share'
 import Transmission from '../view/Transmission'
-import Transmission2 from '../view/Transmission2'
 
 import Media from '../view/Media'
 import Assistant from '../view/Assistant'
@@ -59,7 +58,6 @@ class NavViews extends React.Component {
     this.install('share', Share)
     this.install('public', Public)
     this.install('transmission', Transmission)
-    this.install('transmission2', Transmission2)
 
     this.install('download', Download)
     this.install('finishedList', FinishedList)
@@ -157,7 +155,7 @@ class NavViews extends React.Component {
       }
 
       /* find new version */
-      if (firm.appifi.tagName.localeCompare(firm.releases[0].remote.tag_name) > -1) {
+      if (firm.appifi.tagName.localeCompare(firm.releases[0].remote.tag_name) > 0) {
         const nt = {
           id: UUID.v4(),
           type: 'firmware',
