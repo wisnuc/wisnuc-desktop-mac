@@ -166,6 +166,10 @@ class NavViews extends React.Component {
         this.addNts([nt])
       }
     }
+
+    this.onMoveInDrawer = () => {
+      clearTimeout(this.timer)
+    }
   }
 
   install(name, View) {
@@ -177,9 +181,15 @@ class NavViews extends React.Component {
   componentDidMount() {
     this.navTo('home')
     this.checkFirmWareAsync().catch(e => console.log('checkFirmWareAsync error', e))
+    this.setState({ openDrawer: true })
+    this.timer = setTimeout(() => this.setState({ openDrawer: false }), 1500)
     ipcRenderer.send('START_TRANSMISSION')
     ipcRenderer.on('snackbarMessage', (e, message) => this.openSnackBar(message.message))
     ipcRenderer.on('conflicts', (e, args) => this.setState({ conflicts: args }))
+  }
+
+  componentWillUnmount() {
+    clearTimeout(this.timer)
   }
 
   componentDidUpdate() {
@@ -611,6 +621,7 @@ class NavViews extends React.Component {
         { this.renderDetail() }
 
         <NavDrawer
+          onMouseMove={this.onMoveInDrawer}
           open={this.state.openDrawer}
           onRequestChange={this.openDrawerBound}
           views={this.views}
