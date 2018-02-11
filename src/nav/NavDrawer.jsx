@@ -199,6 +199,24 @@ class NavDrawer extends React.Component {
 
           {/* this.renderGroup('file') */}
 
+          {/*
+          <MenuItem
+            icon={views.box.menuIcon()}
+            text={i18n.__('Inboxes')}
+            primaryColor={primaryColor}
+            selected={views[nav].navGroup() === 'box'}
+            onTouchTap={() => navTo('box')}
+          />
+          */}
+
+          <MenuItem
+            icon={views.group.menuIcon()}
+            text={i18n.__('Groups')}
+            primaryColor={primaryColor}
+            selected={views[nav].navGroup() === 'group'}
+            onTouchTap={() => navTo('group')}
+          />
+
           <MenuItem
             icon={views.home.menuIcon()}
             text={i18n.__('Files')}
@@ -224,16 +242,6 @@ class NavDrawer extends React.Component {
           />
 
           <SubHeader>{ i18n.__('Management Title') }</SubHeader>
-
-          {/*
-          <MenuItem
-            icon={views.docker.menuIcon()}
-            text={i18n.__('Docker')}
-            primaryColor={primaryColor}
-            selected={views[nav].navGroup() === 'docker'}
-            onTouchTap={() => navTo('docker')}
-          />
-          */}
 
           <MenuItem
             icon={views.account.menuIcon()}

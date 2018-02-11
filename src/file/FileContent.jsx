@@ -24,8 +24,8 @@ class FileContent extends React.Component {
     /* cathc key action */
     this.keyDown = (e) => {
       // debug('keyEvent')
-      const { copy, createNewFolder, loading, move, rename, share } = this.props.home
-      if (copy || createNewFolder || this.props.home.delete || loading || move || rename || share) return
+      const { copy, createNewFolder, loading, move, rename, share } = this.props
+      if (copy || createNewFolder || this.props.delete || loading || move || rename || share) return
       if (this.props.select) {
         if (e.ctrlKey && e.key === 'a') {
           this.props.select.addByArray(Array.from({ length: this.props.entries.length }, (v, i) => i)) // [0, 1, ..., N]
@@ -36,8 +36,8 @@ class FileContent extends React.Component {
     }
 
     this.keyUp = (e) => {
-      const { copy, createNewFolder, loading, move, rename, share } = this.props.home
-      if (copy || createNewFolder || this.props.home.delete || loading || move || rename || share) return
+      const { copy, createNewFolder, loading, move, rename, share } = this.props
+      if (copy || createNewFolder || this.props.delete || loading || move || rename || share) return
       if (this.props.select) this.props.select.keyEvent(e.ctrlKey, e.shiftKey)
     }
 
@@ -57,6 +57,8 @@ class FileContent extends React.Component {
       e.preventDefault() // important, to prevent other event
       e.stopPropagation()
 
+      if (this.props.fileSelect && this.props.entries[index] && this.props.entries[index].type !== 'file') return
+
       const type = e.type
       const button = e.nativeEvent.button
       if (type !== 'mouseup' || !(button === 0 || button === 2)) return
@@ -74,9 +76,9 @@ class FileContent extends React.Component {
       if (index === -1) return
       // debug('rowDoubleClick', this.props, index)
       const entry = this.props.entries[index]
-      this.props.listNavBySelect()
+      this.props.listNavBySelect(entry)
       if (entry.type === 'file') {
-        this.setState({ seqIndex: index, preview: true })
+        if (!this.props.fileSelect) this.setState({ seqIndex: index, preview: true })
       } else {
         // debug('should change to loading')
         this.setState({ loading: true })
@@ -94,9 +96,9 @@ class FileContent extends React.Component {
     /* handle files */
     this.drop = (e) => {
       const files = [...e.dataTransfer.files].map(f => f.path)
-      const dir = this.props.home.path
+      const dir = this.props.path
       const dirUUID = dir[dir.length - 1].uuid
-      const driveUUID = this.props.home.path[0].uuid
+      const driveUUID = this.props.path[0].uuid
       // debug('drop files!!', files, dirUUID, driveUUID, dir)
       if (!dirUUID || !driveUUID) {
         this.props.openSnackBar(i18n.__('No Drag File Warning in Public'))
@@ -119,6 +121,7 @@ class FileContent extends React.Component {
     this.selectBox = null
 
     this.selectStart = (event, scrollTop) => {
+      if (this.props.noGridSelect) return
       if (event.nativeEvent.button !== 0) return
       if (this.selectBox) {
         this.selectEnd(event)
@@ -211,6 +214,7 @@ class FileContent extends React.Component {
       const array = Array
         .from({ length }, (v, i) => i)
         .filter((v, i) => {
+          if (this.props.fileSelect && this.props.entries[i].type !== 'file') return false
           const head = (i + 1) * lineHeight - scrollTop // row.tail > top && row.head < top + height
           return ((parseInt(s.top, 10) < head + lineHeight) &&
             (head < parseInt(s.top, 10) + parseInt(s.height, 10)))
@@ -274,7 +278,7 @@ class FileContent extends React.Component {
 
   componentWillReceiveProps(nextProps) {
     // debug('componentWillReceiveProps', this.props, nextProps)
-    if (nextProps.home.loading) this.setState({ loading: true })
+    if (nextProps.loading) this.setState({ loading: true })
     if (nextProps.entries && this.props.entries !== nextProps.entries) this.setState({ loading: false })
   }
 
@@ -291,22 +295,25 @@ class FileContent extends React.Component {
         onTouchTap={e => this.onRowTouchTap(e, -1)}
         onDrop={this.drop}
       >
-        <div
-          style={{
-            width: 360,
-            height: 360,
-            borderRadius: '180px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexDirection: 'column',
-            backgroundColor: '#FAFAFA'
-          }}
-        >
-          <UploadIcon style={{ height: 64, width: 64, color: 'rgba(0,0,0,0.27)' }} />
-          <div style={{ fontSize: 24, color: 'rgba(0,0,0,0.27)' }}> { i18n.__('No File Text 1') } </div>
-          <div style={{ color: 'rgba(0,0,0,0.27)' }}> { i18n.__('No File Text 2') } </div>
-        </div>
+        {
+          this.props.fileSelect ? i18n.__('Empty Folder Text') :
+            <div
+              style={{
+                width: 360,
+                height: 360,
+                borderRadius: '180px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexDirection: 'column',
+                backgroundColor: '#FAFAFA'
+              }}
+            >
+              <UploadIcon style={{ height: 64, width: 64, color: 'rgba(0,0,0,0.27)' }} />
+              <div style={{ fontSize: 24, color: 'rgba(0,0,0,0.27)' }}> { i18n.__('No File Text 1') } </div>
+              <div style={{ color: 'rgba(0,0,0,0.27)' }}> { i18n.__('No File Text 2') } </div>
+            </div>
+        }
       </div>
     )
   }
@@ -345,13 +352,12 @@ class FileContent extends React.Component {
   }
 
   render() {
-    // debug('render FileContent loading', this.props.home.loading, this.state.loading)
-
+    console.log('render', this.state, this.props)
     /* loding */
     if (this.state.loading) return this.renderLoading()
 
     /* not get list yet */
-    if (!this.props.home.path || !this.props.home.path.length) return (<div />)
+    if (!this.props.path || !this.props.path.length || !this.props.select) return (<div />)
 
     /* dir is empty */
     if (this.props.entries && !this.props.entries.length) return this.renderNoFile()
@@ -407,7 +413,7 @@ class FileContent extends React.Component {
           memoize={this.props.memoize}
           download={this.props.download}
           primaryColor={this.props.primaryColor}
-          path={this.props.home.path}
+          path={this.props.path}
           select={this.props.select.touchTap}
           apis={this.props.apis}
         />

@@ -12,22 +12,31 @@ class Fruitmix extends EventEmitter {
     this.address = address
     this.userUUID = userUUID
     this.token = token
+    this.bToken = null // box Token
+    this.wxToken = null // stored weChat Token
     this.stationID = stationID
+
+    this.update = (name, data, next) => { // update state, not emit
+      this[name] = data
+      if (typeof next === 'function') next()
+    }
 
     this.state = {
       address,
       userUUID,
       token,
       stationID,
+      update: this.update,
       request: this.request.bind(this),
       requestAsync: this.requestAsync.bind(this),
       pureRequest: this.pureRequest.bind(this),
       pureRequestAsync: this.pureRequestAsync.bind(this)
     }
 
+
     this.reqCloud = (ep, data, type) => {
       const url = `${address}/c/v1/stations/${this.stationID}/json`
-      const resource = new Buffer(`/${ep}`).toString('base64')
+      const resource = Buffer.from(`/${ep}`).toString('base64')
       // console.log('this.reqCloud', type, ep)
       if (type === 'GET') return request.get(url).set('Authorization', this.token).query({ resource, method: type })
       if (data && data.op) {
@@ -43,7 +52,20 @@ class Fruitmix extends EventEmitter {
             return r.send(Object.assign({ resource, method: type, op: 'dup', toName: data.newName, fromName: data.oldName }))
         }
       }
-      if (data) return request.post(url).set('Authorization', this.token).send(Object.assign({ resource, method: type }, data))
+      return request.post(url).set('Authorization', this.token).send(Object.assign({ resource, method: type }, data))
+    }
+
+    this.creq = (ep, method, stationId, data) => {
+      // console.log('this.creq', ep, method, stationId, data)
+      if (stationId) {
+        const url = `${cloudAddress}/c/v1/stations/${stationId}/json`
+        const resource = Buffer.from(`/${ep}`).toString('base64')
+        if (method === 'GET') return request.get(url).set('Authorization', this.wxToken).query({ resource, method })
+        return request.post(url).set('Authorization', this.wxToken).send(Object.assign({ resource, method }, data))
+      }
+      return request
+        .get(`${cloudAddress}/c/v1/${ep}`)
+        .set('Authorization', this.wxToken)
     }
   }
 
@@ -66,7 +88,10 @@ class Fruitmix extends EventEmitter {
       }
       this.setState(name, curr)
 
-      // console.log(`${name} updated`, prev, curr, this[name].isFinished(), typeof next === 'function')
+      console.log(`${name} updated`, prev, curr, this[name].isFinished(), typeof next === 'function')
+
+      /* save box token */
+      if (name === 'boxToken' && !this[name].isRejected()) this.bToken = curr.data.token
 
       if (this[name].isFinished() && next) {
         this[name].isRejected()
@@ -176,7 +201,7 @@ class Fruitmix extends EventEmitter {
           r = this.aput(`users/${this.userUUID}/password`, { password: args.newPassword })
         } if (args.stationID) { // login via WeChat and connecting via LAN, rest password
           const url = `${cloudAddress}/c/v1/stations/${args.stationID}/json`
-          const resource = new Buffer(`/users/${this.userUUID}/password`).toString('base64')
+          const resource = Buffer.from(`/users/${this.userUUID}/password`).toString('base64')
           r = request.post(url).set('Authorization', args.token).send({ resource, method: 'PUT', password: args.newPassword })
         } else {
           r = request
@@ -349,12 +374,19 @@ class Fruitmix extends EventEmitter {
         r = this.aget('download/switch')
         break
 
+      /* Box API */
+      /*
+      case 'boxToken':
+        r = this.aget('cloudToken').query({ guid: args.guid })
+        break
+      */
+
       default:
         break
     }
 
-    if (!r) return console.log(`no request handler found for ${name}`)
-    this.setRequest(name, args, cb => r.end(cb), next)
+    if (!r) console.log(`no request handler found for ${name}`)
+    else this.setRequest(name, args, cb => r.end(cb), next)
   }
 
   async requestAsync(name, args) {
@@ -363,10 +395,20 @@ class Fruitmix extends EventEmitter {
 
   pureRequest(name, args, next) {
     let r
+    let isCloud = !!this.stationID
     switch (name) {
       /* file api */
       case 'listNavDir':
         r = this.aget(`drives/${args.driveUUID}/dirs/${args.dirUUID}`)
+          .query({ metadata: true })
+        break
+
+      case 'media':
+        r = this.aget('media')
+        break
+
+      case 'blacklist':
+        r = this.aget(`users/${this.userUUID}/media-blacklist`)
         break
 
       case 'randomSrc':
@@ -409,12 +451,14 @@ class Fruitmix extends EventEmitter {
           .get(`${cloudAddress}/c/v1/token`)
           .query({ code: args.code })
           .query({ platform: args.platform })
+        isCloud = true
         break
 
       case 'fillTicket':
         r = request
           .post(`${cloudAddress}/c/v1/tickets/${args.ticketId}/users`)
           .set('Authorization', args.token)
+        isCloud = true
         break
 
       case 'confirmTicket':
@@ -432,12 +476,78 @@ class Fruitmix extends EventEmitter {
         r = this.apatch('download/switch', { op: args.op })
         break
 
+      /* box API */
+      case 'createBox':
+        r = this.creq('boxes', 'POST', args.stationId, { name: args.name, users: args.users })
+        isCloud = true
+        break
+
+      case 'box':
+        r = this.creq(`boxes/${args.uuid}`, 'GET')
+        isCloud = true
+        break
+
+      case 'friends':
+        r = this.creq(`users/${args.userId}/interestingPerson`, 'GET')
+        isCloud = true
+        break
+
+      case 'boxes':
+        r = this.creq('boxes', 'GET')
+        isCloud = true
+        break
+
+      case 'delBox':
+        r = this.creq(`boxes/${args.boxUUID}`, 'DELETE', args.stationId)
+        isCloud = true
+        break
+
+      case 'tweets':
+        r = this.creq(`boxes/${args.boxUUID}/tweets`, 'GET', args.stationId)
+          .query({ first: args.first, last: args.last, count: args.count, metadata: true })
+        isCloud = true
+        break
+
+      case 'createTweet':
+        r = this.creq(`boxes/${args.boxUUID}/tweets`, 'POST', args.station, { comment: args.comment })
+        isCloud = true
+        break
+
+      case 'delTweet':
+        r = this.creq(`boxes/${args.boxUUID}/tweets`, 'DELETE', args.station, { indexArr: args.indexs })
+        isCloud = true
+        break
+
+      case 'nasTweets': {
+        const ep = `boxes/${args.boxUUID}/tweets`
+        const url = `${cloudAddress}/c/v1/stations/${args.stationId}/pipe`
+        const resource = Buffer.from(`/${ep}`).toString('base64')
+        r = request.post(url).set('Authorization', this.wxToken).field('manifest', JSON.stringify({
+          resource, method: 'POST', comment: args.comment, type: args.type, indrive: args.list
+        }))
+        isCloud = true
+        break
+      }
+
+      case 'handleBoxUser':
+        r = this.creq(`boxes/${args.boxUUID}`, 'PATCH', args.stationId, { users: { op: args.op, value: args.guids } })
+        isCloud = true
+        break
+
+      case 'boxName':
+        r = this.creq(`boxes/${args.boxUUID}`, 'PATCH', args.stationId, { name: args.name })
+        isCloud = true
+        break
+
       default:
         break
     }
 
     if (!r) console.log(`no request handler found for ${name}`)
-    else r.end(next)
+    else {
+      r.end((err, res) => (typeof next === 'function') &&
+        next(err, isCloud ? res && res.body && res.body.data : res && res.body))
+    }
   }
 
   async pureRequestAsync(name, args) {

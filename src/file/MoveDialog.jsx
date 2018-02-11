@@ -297,8 +297,7 @@ class MoveDialog extends React.PureComponent {
     /* request task state */
     this.getTaskState = async (uuid) => {
       await this.sleep(500)
-      const res = await this.props.apis.pureRequestAsync('task', { uuid })
-      const data = this.props.apis.stationID ? res.body.data : res.body
+      const data = await this.props.apis.pureRequestAsync('task', { uuid })
       if (data && data.nodes && data.nodes.findIndex(n => n.parent === null && n.state === 'Finished') > -1) return 'Finished'
       if (data && data.nodes && data.nodes.findIndex(n => n.state === 'Conflict') > -1) return 'Conflict'
       return 'Working'
@@ -320,8 +319,7 @@ class MoveDialog extends React.PureComponent {
     /* get file list */
     this.list = async (driveUUID, dirUUID) => {
       this.setState({ loading: true })
-      const res = await this.props.apis.pureRequestAsync('listNavDir', { driveUUID, dirUUID })
-      const data = this.props.apis.stationID ? res.body.data : res.body
+      const data = await this.props.apis.pureRequestAsync('listNavDir', { driveUUID, dirUUID })
       return this.sort(data)
     }
   }
@@ -387,8 +385,9 @@ class MoveDialog extends React.PureComponent {
 
   renderCurrentDir() {
     const type = this.state.currentDir.type
+    console.log('this.state.currentDir', this.state.currentDir)
     return this.state.currentDir.name === this.state.currentDir.uuid
-      ? i18n.__('Home Title')
+      ? this.props.title()
       : type === 'publicRoot'
         ? i18n.__('Public Drive')
         : type === 'root'

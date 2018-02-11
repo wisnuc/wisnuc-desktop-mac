@@ -42,7 +42,7 @@ class Home extends Base {
     super(ctx)
 
     this.type = 'home'
-    this.title = i18n.__('Home Title')
+    this.title = () => i18n.__('Home Title')
     /* handle select TODO */
     this.select = new ListSelect(this)
     this.select.on('updated', next => this.setState({ select: next }))
@@ -210,6 +210,8 @@ class Home extends Base {
       else this.setState({ loading: true })
     }
 
+    this.resetScrollTo = () => Object.assign(this.state, { scrollTo: null })
+
     this.showContextMenu = (clientX, clientY) => {
       if (this.select.state.ctrl || this.select.state.shift) return
       const containerDom = document.getElementById('content-container')
@@ -254,8 +256,7 @@ class Home extends Base {
     /* request task state */
     this.getTaskState = async (uuid) => {
       await Promise.delay(500)
-      const res = await this.ctx.props.apis.pureRequestAsync('task', { uuid })
-      const data = this.ctx.props.apis.stationID ? res.body.data : res.body
+      const data = await this.ctx.props.apis.pureRequestAsync('task', { uuid })
       if (data && data.nodes && data.nodes.findIndex(n => n.parent === null && n.state === 'Finished') > -1) return 'Finished'
       if (data && data.nodes && data.nodes.findIndex(n => n.state === 'Conflict') > -1) return 'Conflict'
       return 'Working'
@@ -648,7 +649,7 @@ class Home extends Base {
             if (index !== 0) acc.push(<BreadCrumbSeparator key={`Separator${node.uuid}`} />)
 
             /* the first one is always special */
-            if (index === 0) acc.push(<BreadCrumbItem text={this.title} key="root" {...funcs} />)
+            if (index === 0) acc.push(<BreadCrumbItem text={this.title()} key="root" {...funcs} />)
             else acc.push(<BreadCrumbItem text={node.name} key={`Item${node.uuid}`} {...funcs} />)
 
             return acc
@@ -731,6 +732,7 @@ class Home extends Base {
 
         <DialogOverlay open={!!this.state.move} onRequestClose={() => this.toggleDialog('move')}>
           { this.state.move && <MoveDialog
+            title={this.title}
             apis={this.ctx.props.apis}
             path={this.state.path}
             entries={this.state.entries}
@@ -746,6 +748,7 @@ class Home extends Base {
 
         <DialogOverlay open={!!this.state.copy} onRequestClose={() => this.toggleDialog('copy')}>
           { this.state.copy && <MoveDialog
+            title={this.title}
             apis={this.ctx.props.apis}
             path={this.state.path}
             entries={this.state.entries}
@@ -761,6 +764,7 @@ class Home extends Base {
 
         <DialogOverlay open={!!this.state.share} onRequestClose={() => this.toggleDialog('share')}>
           { this.state.share && <MoveDialog
+            title={this.title}
             apis={this.ctx.props.apis}
             path={this.state.path}
             entries={this.state.entries}
@@ -845,28 +849,26 @@ class Home extends Base {
               </div>
               :
               <div>
-                { !this.ctx.props.selectedDevice.token.data.stationID &&
-                  <div>
-                    {
-                      this.title !== i18n.__('Share Title') &&
-                        <MenuItem
-                          leftIcon={<ShareIcon style={{ height: 20, width: 20, marginTop: 6 }} />}
-                          primaryText={i18n.__('Share to Public')}
-                          onTouchTap={() => this.toggleDialog('share')}
-                        />
-                    }
-                    <MenuItem
-                      leftIcon={<CopyIcon style={{ height: 20, width: 20, marginTop: 6 }} />}
-                      primaryText={i18n.__('Copy to')}
-                      onTouchTap={() => this.toggleDialog('copy')}
-                    />
-                    <MenuItem
-                      leftIcon={<MoveIcon style={{ height: 20, width: 20, marginTop: 6 }} />}
-                      primaryText={i18n.__('Move to')}
-                      onTouchTap={() => this.toggleDialog('move')}
-                    />
-                  </div>
-                }
+                <div>
+                  {
+                    this.title() !== i18n.__('Share Title') &&
+                      <MenuItem
+                        leftIcon={<ShareIcon style={{ height: 20, width: 20, marginTop: 6 }} />}
+                        primaryText={i18n.__('Share to Public')}
+                        onTouchTap={() => this.toggleDialog('share')}
+                      />
+                  }
+                  <MenuItem
+                    leftIcon={<CopyIcon style={{ height: 20, width: 20, marginTop: 6 }} />}
+                    primaryText={i18n.__('Copy to')}
+                    onTouchTap={() => this.toggleDialog('copy')}
+                  />
+                  <MenuItem
+                    leftIcon={<MoveIcon style={{ height: 20, width: 20, marginTop: 6 }} />}
+                    primaryText={i18n.__('Move to')}
+                    onTouchTap={() => this.toggleDialog('move')}
+                  />
+                </div>
                 {
                   this.state.select && this.state.select.selected && this.state.select.selected.length === 1 &&
                     <MenuItem
@@ -919,24 +921,20 @@ class Home extends Base {
         <FileUploadButton upload={this.upload} />
 
         <FileContent
-          home={this.state}
-          select={this.state.select}
-          entries={this.state.entries}
+          {...this.state}
           listNavBySelect={this.listNavBySelect}
           showContextMenu={this.showContextMenu}
           setAnimation={this.setAnimation}
           ipcRenderer={ipcRenderer}
           download={this.download}
           primaryColor={this.groupPrimaryColor()}
-          sortType={this.state.sortType}
           changeSortType={this.changeSortType}
-          gridView={this.state.gridView}
-          scrollTo={this.state.scrollTo}
           openSnackBar={openSnackBar}
           toggleDialog={this.toggleDialog}
           showTakenTime={!!this.state.takenTime}
           apis={this.ctx.props.apis}
           refresh={this.refresh}
+          resetScrollTo={this.resetScrollTo}
           rowDragStart={this.rowDragStart}
           gridDragStart={this.gridDragStart}
           setScrollTop={this.setScrollTop}

@@ -13,6 +13,8 @@ const debug = Debug('node:lib:server')
 const getTmpPath = () => store.getState().config.tmpPath
 const getTmpTransPath = () => store.getState().config.tmpTransPath
 
+const cloudAddress = 'http://www.siyouqun.com:80'
+
 export const clearTmpTrans = () => {
   // console.log('clearTmpTrans', `${getTmpTransPath()}/*`)
   rimraf(`${getTmpTransPath()}/*`, e => e && console.log('clearTmpTrans error', e))
@@ -35,7 +37,7 @@ export const isCloud = () => !!stationID
 const reqCloud = (ep, data, type) => {
   const url = `${address}/c/v1/stations/${stationID}/json`
   const url2 = `${address}/c/v1/stations/${stationID}/pipe`
-  const resource = new Buffer(`/${ep}`).toString('base64')
+  const resource = Buffer.from(`/${ep}`).toString('base64')
   // debug('reqCloud', type, ep)
   if (type === 'GET') return request.get(url).set('Authorization', token).query({ resource, method: type })
   if (type === 'DOWNLOAD') return request.get(url2).set('Authorization', token).query({ resource, method: 'GET' })
@@ -54,6 +56,13 @@ const adownload = (ep) => {
   return request
     .get(`http://${address}:3000/${ep}`)
     .set('Authorization', `JWT ${token}`)
+}
+
+const cdownload = (ep, station) => {
+  const { stationId, wxToken } = station
+  const url = `${cloudAddress}/c/v1/stations/${stationId}/pipe`
+  const resource = Buffer.from(`/${ep}`).toString('base64')
+  return request.get(url).set('Authorization', wxToken).query({ resource, method: 'GET' })
 }
 
 const apost = (ep, data) => {
@@ -159,7 +168,7 @@ export class UploadMultipleFiles {
     const part = parts[0]
 
     const url = `${address}/c/v1/stations/${stationID}/pipe`
-    const resource = new Buffer(`/${ep}`).toString('base64')
+    const resource = Buffer.from(`/${ep}`).toString('base64')
 
     const option = {
       op: 'newfile',
@@ -188,7 +197,7 @@ export class UploadMultipleFiles {
     const file = this.Files[0]
     const { name, policy } = file
     const url = `${address}/c/v1/stations/${stationID}/json`
-    const resource = new Buffer(`/${ep}`).toString('base64')
+    const resource = Buffer.from(`/${ep}`).toString('base64')
     this.handle = request.post(url).set('Authorization', token)
       .send({ resource, method: 'POST', toName: name, uuid: policy.remoteUUID, op: 'remove' })
       .end((err, res) => {
@@ -237,19 +246,20 @@ download a entire file or part of file
 */
 
 export class DownloadFile {
-  constructor(endpoint, qs, fileName, size, seek, stream, callback) {
+  constructor(endpoint, qs, fileName, size, seek, stream, station, callback) {
     this.endpoint = endpoint
     this.qs = qs
     this.fileName = fileName
     this.seek = seek || 0
     this.size = size
     this.stream = stream
+    this.station = station
     this.callback = callback
     this.handle = null
   }
 
   download() {
-    this.handle = adownload(this.endpoint)
+    this.handle = this.station ? cdownload(this.endpoint, this.station) : adownload(this.endpoint)
     if (this.size && this.size === this.seek) return setImmediate(() => this.finish(null))
     if (this.size) this.handle.set('Range', `bytes=${this.seek}-`)
     this.handle
@@ -268,6 +278,7 @@ export class DownloadFile {
         res.on('end', () => this.finish(null))
       })
     this.handle.pipe(this.stream)
+    return null
   }
 
   abort() {
@@ -330,7 +341,7 @@ export const createFold = (driveUUID, dirUUID, dirname, localEntries, policy, ca
   let handle = null
   if (stationID) {
     const url = `${address}/c/v1/stations/${stationID}/json`
-    const resource = new Buffer(`/${ep}`).toString('base64')
+    const resource = Buffer.from(`/${ep}`).toString('base64')
     handle = request.post(url).set('Authorization', token)
     if (policy && policy.mode === 'replace') handle.send(Object.assign({ resource, method: 'POST', op: 'remove', toName: dirname, uuid: policy.remoteUUID }))
     else handle.send(Object.assign({ resource, method: 'POST', op: 'mkdir', toName: dirname }))
@@ -360,7 +371,7 @@ export const createFold = (driveUUID, dirUUID, dirname, localEntries, policy, ca
             } else callback(res.body)
           })
           .catch(e => callback(Object.assign({}, e, { response: e.response && e.response.body })))
-      } else if(!policy.retry) {
+      } else if (!policy.retry) {
         console.log('retry create folder', dirname, error.response && error.response.body)
         createFold(driveUUID, dirUUID, dirname, localEntries, Object.assign({ retry: true }, policy), callback)
       } else callback(Object.assign({}, error, { response: error.response && error.response.body }))
@@ -430,10 +441,33 @@ export const uploadTorrent = (dirUUID, rs, part, callback) => {
     const url = `${address}/c/v1/stations/${stationID}/pipe`
     const resource = Buffer.from(`/${ep}`).toString('base64')
     const option = { resource, dirUUID, sha256: part.sha, method: 'POST', size: part.end ? part.end - part.start + 1 : 0 }
-    request.post(url).set('Authorization', token).field('manifest', JSON.stringify(option)).attach('torrent', rs).end(callback)
+    request.post(url).set('Authorization', token).field('manifest', JSON.stringify(option)).attach('torrent', rs)
+      .end(callback)
   } else {
     apost('download/torrent').field('dirUUID', dirUUID).attach('torrent', rs).end(callback)
   }
 }
 
 export const uploadTorrentAsync = Promise.promisify(uploadTorrent)
+
+export const boxUpload = (files, args, callback) => {
+  const { comment, type, box } = args
+  const boxUUID = box.uuid
+  const { stationId, wxToken } = box
+  const list = files.map(f => ({ filename: f.filename, size: f.size, sha256: f.sha256 }))
+  const ep = `boxes/${boxUUID}/tweets`
+  const url = `${cloudAddress}/c/v1/stations/${stationId}/pipe`
+  const resource = Buffer.from(`/${ep}`).toString('base64')
+  const { filename, size, sha256, entry } = files[0]
+  const option = { type, list, comment, resource, method: 'POST' }
+
+  const r = request
+    .post(url)
+    .set('Authorization', wxToken)
+    .field('manifest', JSON.stringify(option))
+    .attach(filename, entry, JSON.stringify({ size, sha256 }))
+
+  r.end(callback)
+}
+
+export const boxUploadAsync = Promise.promisify(boxUpload)

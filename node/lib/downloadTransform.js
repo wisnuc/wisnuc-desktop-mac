@@ -195,9 +195,11 @@ class Task {
           if (!task.paused && entry.seek !== entry.size) callback({ code: 'ECONNEND' })
         })
 
-        const ep = dirUUID === 'media' ? `media/${entry.uuid}` : `drives/${driveUUID}/dirs/${dirUUID}/entries/${entry.uuid}`
-        const qs = dirUUID === 'media' ? { alt: 'data' } : { name: entry.name }
-        const handle = new DownloadFile(ep, qs, entry.name, entry.size, entry.seek, stream, (error) => {
+        const ep = dirUUID === 'media' ? `media/${entry.uuid}`
+          : dirUUID === 'boxFiles' ? `boxes/${entry.station && entry.station.boxUUID}/files/${entry.sha256}`
+          : `drives/${driveUUID}/dirs/${dirUUID}/entries/${entry.uuid}`
+        const qs = dirUUID === 'media' ? { alt: 'data', boxUUID: entry.station && entry.station.boxUUID } : { name: entry.name }
+        const handle = new DownloadFile(ep, qs, entry.name, entry.size, entry.seek, stream, entry.station, (error) => {
           debug('donwload handle finish', entry.name, task.reqHandles.indexOf(handle))
           task.reqHandles.splice(task.reqHandles.indexOf(handle), 1)
           if (error) callback(error)

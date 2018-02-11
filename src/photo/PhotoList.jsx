@@ -6,6 +6,7 @@ import { List, AutoSizer } from 'react-virtualized'
 import RenderListByRow from './RenderListByRow'
 import getPhotoInfo from './getPhotoInfo'
 import getTimeline from './getTimeline'
+import ScrollBar from '../common/ScrollBar'
 
 const debug = Debug('component:photoApp:PhotoList')
 const timelineMargin = 26
@@ -40,14 +41,14 @@ class PhotoList extends React.Component {
       if (this.refTimeline) this.refTimeline.style.opacity = op ? 1 : 0
     }
 
-    this.onScroll = () => {
+    this.onScroll = ({ scrollTop }) => {
       if (!this.photoMapDates.length) return
-      const list = document.getElementsByClassName('ReactVirtualized__List')[0]
-      const currentIndex = this.indexHeightSum.findIndex(data => data > list.scrollTop + this.indexHeightSum[0] * 0.9)
-      const percentage = list.scrollTop / this.maxScrollTop
+      const currentIndex = this.indexHeightSum.findIndex(data => data > scrollTop + this.indexHeightSum[0] * 0.9)
+      console.log('currentIndex', currentIndex, scrollTop, this.indexHeightSum)
+      const percentage = scrollTop / this.maxScrollTop
       this.date = this.photoMapDates[currentIndex].date
       this.currentDigest = this.photoMapDates[currentIndex].photos[0].hash
-      if (!this.firstScroll) this.props.memoize({ currentDigest: this.currentDigest, currentScrollTop: list.scrollTop })
+      if (!this.firstScroll) this.props.memoize({ currentDigest: this.currentDigest, currentScrollTop: scrollTop })
       // debug('this.props.memoize()', this.props.memoize(), currentIndex, this.indexHeightSum[0])
 
       /* forceUpdate when first two scroll, this is necessary to show timeline */
@@ -139,8 +140,7 @@ class PhotoList extends React.Component {
     }
 
     this.scrollToPosition = () => {
-      const list = document.getElementsByClassName('ReactVirtualized__List')[0]
-      list.scrollTop = this.scrollTop
+      if (this.refList) this.refList.scrollToPosition(this.scrollTop)
     }
 
     this.onMouseUp = () => (this.onMouseDown = false)
@@ -152,7 +152,7 @@ class PhotoList extends React.Component {
   }
 
   componentDidUpdate() {
-    this.onScroll()
+    this.onScroll({ scrollTop: this.scrollTop || 0 })
   }
 
   componentWillUnmount() {
@@ -329,6 +329,7 @@ class PhotoList extends React.Component {
                   getHoverPhoto={this.props.getHoverPhoto}
                   shiftStatus={this.props.shiftStatus}
                   size={this.size}
+                  selecting={this.props.selecting}
                 />
               </div>
             )
@@ -336,9 +337,11 @@ class PhotoList extends React.Component {
             return (
               <div style={{ position: 'relative', width: '100%', height: '100%' }} >
                 <div key={this.size} onTouchTap={e => this.onRowTouchTap(e)} >
-                  <List
+                  <ScrollBar
+                    ref={ref => (this.refList = ref)}
                     height={height}
                     width={width}
+                    allHeight={PhotoInfo.rowHeightSum}
                     estimatedRowSize={estimatedRowSize}
                     rowHeight={rowHeight}
                     rowRenderer={rowRenderer}
@@ -349,7 +352,7 @@ class PhotoList extends React.Component {
                     style={{ outline: 'none' }}
                   />
                 </div>
-                { this.renderTimeline() }
+                { !this.props.hideTimeline && this.renderTimeline() }
               </div>
             )
           }}

@@ -25,6 +25,8 @@ class Device extends RequestManager {
     this.mdev = mdev
     this.backoff = 30
 
+    this.firstRefresh = true
+
     // reqs
     this.device = null
     this.boot = null
@@ -58,7 +60,7 @@ class Device extends RequestManager {
     this.reqCloud = (type, ep, stationID, token) => {
       const url = `${cloudAddress}/c/v1/stations/${stationID}/json`
       const resource = new Buffer(`/${ep}`).toString('base64')
-      console.log('this.reqCloud device', type, ep)
+      console.log('this.reqCloud device', type, ep, url, token)
       return request
         .get(url)
         .query({ resource, method: type })
@@ -211,18 +213,21 @@ class Device extends RequestManager {
 
   pureRequest(name, args, next) {
     let r
+    let cloud = false
     switch (name) {
       case 'getWechatToken':
         r = request
           .get(`${cloudAddress}/c/v1/token`)
           .query({ code: args.code })
           .query({ platform: 'web' })
+        cloud = true
         break
 
       case 'getStations':
         r = request
           .get(`${cloudAddress}/c/v1/users/${args.guid}/stations`)
           .set('Authorization', args.token)
+        cloud = true
         break
 
       case 'creatTicket':
@@ -236,6 +241,7 @@ class Device extends RequestManager {
         r = request
           .post(`${cloudAddress}/c/v1/tickets/${args.ticketId}/users`)
           .set('Authorization', args.token)
+        cloud = true
         break
 
       case 'confirmTicket':
@@ -250,10 +256,12 @@ class Device extends RequestManager {
 
       case 'cloudUsers':
         r = this.reqCloud('GET', 'users', args.stationID, args.token)
+        cloud = true
         break
 
       case 'localTokenByCloud':
         r = this.reqCloud('GET', 'token', args.stationID, args.token)
+        cloud = true
         break
 
       case 'info':
@@ -297,7 +305,7 @@ class Device extends RequestManager {
     }
 
     if (!r) console.log(`no request handler found for ${name}`)
-    else r.end(next)
+    else r.end((err, res) => (typeof next === 'function') && next(err, cloud ? res && res.body && res.body.data : res && res.body))
   }
 
   async pureRequestAsync(name, args) {
@@ -475,20 +483,22 @@ class Device extends RequestManager {
         return 'noUser'
       }
       return 'ready'
-    } else if (!boot.error && boot.state === 'starting') {
+    } else if (!boot.error && boot.state === 'starting' && this.firstRefresh) {
+      this.firstRefresh = false
       return setTimeout(() => this.refreshSystemState(), 1000)
+    }
+
+    /* no volume */
+    if (storage && storage.volumes && storage.volumes.length === 0) {
+      return 'uninitialized'
     }
 
     /* maintenance mode */
     if (boot.error === 'ELASTNOTMOUNT' || boot.error === 'ELASTMISSING' || boot.error === 'ELASTDAMAGED') {
       return 'failLast'
     } else if (boot.error === 'ENOALT') {
-      const { volumes } = storage
-      if (volumes && volumes.length === 0) return 'uninitialized'
       return 'failNoAlt'
     } else if (boot.mode === 'maintenance') {
-      const { volumes } = storage
-      if (volumes && volumes.length === 0) return 'uninitialized'
       return 'userMaint'
     }
     return 'unknownMaint'

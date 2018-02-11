@@ -25,6 +25,8 @@ import Public from '../view/Public'
 import Share from '../view/Share'
 import Transmission from '../view/Transmission'
 
+import Box from '../view/Box'
+import Group from '../view/Group'
 import Media from '../view/Media'
 import Assistant from '../view/Assistant'
 import Account from '../view/Account'
@@ -58,6 +60,9 @@ class NavViews extends React.Component {
     this.install('share', Share)
     this.install('public', Public)
     this.install('transmission', Transmission)
+
+    this.install('box', Box)
+    this.install('group', Group)
 
     this.install('download', Download)
     this.install('finishedList', FinishedList)
@@ -103,6 +108,7 @@ class NavViews extends React.Component {
     this.openDrawerBound = this.openDrawer.bind(this)
     this.openSnackBarBound = this.openSnackBar.bind(this)
     this.navToDriveBound = this.navToDrive.bind(this)
+    this.navToBound = this.navTo.bind(this)
 
     this.openMovePolicy = (data) => {
       this.setState({ conflicts: data })
@@ -150,7 +156,7 @@ class NavViews extends React.Component {
       let [WIP, firm] = [true, null]
       while (WIP) {
         await Promise.delay(1000)
-        firm = (await this.props.selectedDevice.pureRequestAsync('firm')).body
+        firm = await this.props.selectedDevice.pureRequestAsync('firm')
         WIP = firm.fetch.state === 'Working'
       }
 
@@ -179,7 +185,7 @@ class NavViews extends React.Component {
   }
 
   componentDidMount() {
-    this.navTo('home')
+    this.navTo('group')
     this.checkFirmWareAsync().catch(e => console.log('checkFirmWareAsync error', e))
     this.setState({ openDrawer: true })
     this.timer = setTimeout(() => this.setState({ openDrawer: false }), 1500)
@@ -197,7 +203,7 @@ class NavViews extends React.Component {
   }
 
   navTo(nav, target) {
-    // debug('navTo', nav, target, this.state.nav)
+    debug('navTo', nav, target, this.state.nav)
     if (nav === this.state.nav) {
       this.setState({ openDrawer: false })
     } else {
@@ -300,10 +306,9 @@ class NavViews extends React.Component {
             return (
               <QuickNav
                 key={`quicknav-${key}`}
-                icon={this.views[key].quickIcon()}
+                Icon={this.views[key].quickIcon()}
                 text={this.views[key].quickName()}
-                color={color}
-                selected={key === this.state.nav}
+                color={key === this.state.nav ? color : 'rgba(0,0,0,0.54)'}
                 onTouchTap={this.navBound(key)}
               />)
           })
@@ -375,7 +380,7 @@ class NavViews extends React.Component {
             transition: 'opacity 300ms'
           }}
         />
-        <IconButton tooltip={tooltip} tooltipStyles={{ marginTop: !view.prominent() ? -12 : undefined }}>
+        <IconButton tooltip={tooltip}>
           <Icon
             color={view.appBarStyle() === 'light' ? 'rgba(0,0,0,0.54)' : '#FFF'}
             onTouchTap={() => this.setState({ [type]: !this.state[type] })}
@@ -452,7 +457,6 @@ class NavViews extends React.Component {
       width: '100%',
       height: this.appBarHeight(),
       backgroundColor,
-      overflow: 'hidden',
       zIndex: 101
     }
 
