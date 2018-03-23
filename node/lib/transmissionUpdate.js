@@ -1,12 +1,10 @@
-import os from 'os'
-import i18n from 'i18n'
-import Debug from 'debug'
-import child from 'child_process'
-import { ipcMain, powerSaveBlocker, shell } from 'electron'
+const i18n = require('i18n')
+const Debug = require('debug')
+const { ipcMain, powerSaveBlocker, shell } = require('electron')
 
-import store from './store'
-import { clearTmpTrans } from './server'
-import { getMainWindow } from './window'
+const store = require('./store')
+const { clearTmpTrans } = require('./server')
+const { getMainWindow } = require('./window')
 
 const debug = Debug('node:lib:transmissionUpdate:')
 
@@ -31,7 +29,7 @@ const sendMsg = () => {
   finishTasks.sort((a, b) => b.finishDate - a.finishDate) // Descending
 
   if (!powerSaveBlocker.isStarted(id) && userTasks.length !== 0 && !store.getState().config.enableSleep) {
-    id = powerSaveBlocker.start('prevent-display-sleep')
+    id = powerSaveBlocker.start('prevent-app-suspension')
     // console.log('powerSaveBlocker start', id, powerSaveBlocker.isStarted(id))
   }
 
@@ -109,12 +107,11 @@ ipcMain.on('DELETE_TASK', (e, uuids) => actionHandler(e, uuids, 'DELETE'))
 
 ipcMain.on('START_TRANSMISSION', () => {
   global.DB.loadAll((error, tasks) => {
-    if (error) return debug('load nedb store error', error)
-    // debug('startTransmissionHandle', tasks)
-    tasks.forEach(t => t.state === 'finished' && Tasks.push(t))
+    if (error) console.error('load nedb store error', error)
+    else tasks.forEach(t => t.state === 'finished' && Tasks.push(t))
   })
 })
 
 ipcMain.on('LOGOUT', clearTasks)
 
-export { Tasks, sendMsg, clearTasks }
+module.exports = { Tasks, sendMsg, clearTasks }

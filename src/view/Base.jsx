@@ -1,59 +1,59 @@
 import React from 'react'
 import i18n from 'i18n'
-
-import { teal600, indigo600, lightBlue600, cyan700, green600, lightGreen700, lime800, blue500, blueGrey400, blueGrey500, brown500, purple300, deepPurple500, indigo300, red400, orange600, pinkA200 } from 'material-ui/styles/colors'
+import { teal600, indigo600, lightBlue600, lightGreen700, blueGrey400, blueGrey500, deepPurple500, pinkA200
+} from 'material-ui/styles/colors'
 import NavigationMenu from 'material-ui/svg-icons/navigation/menu'
 import ErrorIcon from 'material-ui/svg-icons/alert/error'
 import { IconButton } from 'material-ui'
 import EventEmitter from 'eventemitter3'
 
 class Base extends EventEmitter {
-  constructor(ctx) {
+  constructor (ctx) {
     super()
     this.ctx = ctx
     this.state = {}
 
     this.handleProps = (apis, keys) => {
       /* waiting */
-      if (!apis || keys.findIndex(key => !apis[key] || apis[key].isPending()) > -1) return null
+      if (!apis || keys.findIndex(key => !apis[key] || apis[key].isPending()) > -1) return
 
       /* handle rejected */
       const rejected = keys.find(key => apis[key].isRejected())
       const reason = rejected && apis[rejected].reason()
-      if (rejected && reason !== this.state.error) return this.setState({ error: reason })
-      if (rejected) return null
-
-      /* now all keys are fulfilled */
-      keys.forEach((key) => {
-        const value = apis[key].value()
-        if (this.state[key] !== value) this.setState({ [key]: value, error: null })
-      })
+      if (rejected && reason !== this.state.error) this.setState({ error: reason })
+      else if (!rejected) {
+        /* now all keys are fulfilled */
+        keys.forEach((key) => {
+          const value = apis[key].value()
+          if (this.state[key] !== value) this.setState({ [key]: value, error: null })
+        })
+      }
     }
   }
 
-  setState(props) {
+  setState (props) {
     this.state = Object.assign({}, this.state, props)
     this.emit('updated', this.state)
   }
 
-  forceUpdate() {
+  forceUpdate () {
     this.emit('updated', this.state)
   }
 
-  willReceiveProps(nextProps) {
+  willReceiveProps (nextProps) {
   }
 
-  navEnter() {
+  navEnter () {
   }
 
-  navLeave() {
+  navLeave () {
   }
 
-  navGroup() {
+  navGroup () {
     return 'unfiled'
   }
 
-  groupPrimaryColor() {
+  groupPrimaryColor () {
     const group = this.navGroup()
     switch (group) {
       case 'file':
@@ -85,75 +85,75 @@ class Base extends EventEmitter {
     }
   }
 
-  groupAccentColor() {
+  groupAccentColor () {
     return pinkA200
   }
 
-  menuName() {
+  menuName () {
   }
 
-  menuIcon() {
+  menuIcon () {
   }
 
-  quickName() {
+  quickName () {
     return this.menuName()
   }
 
-  quickIcon() {
+  quickIcon () {
     return this.menuIcon()
   }
 
-  hasQuickNav() {
+  hasQuickNav () {
     return true
   }
 
   // 'light' or 'transparent', no appBarColor required
   // 'colored' or 'dark', should further provide appBarColor
-  appBarStyle() {
+  appBarStyle () {
     return 'light'
   }
 
-  appBarColor() {
+  appBarColor () {
     return this.groupPrimaryColor()
   }
 
-  primaryColor() {
+  primaryColor () {
     return this.groupPrimaryColor()
   }
 
-  accentColor() {
+  accentColor () {
     return this.groupAccentColor()
   }
 
-  prominent() {
+  prominent () {
     return false
   }
 
-  showQuickNav() {
+  showQuickNav () {
     return true
   }
 
-  hasDetail() {
+  hasDetail () {
     return false
   }
 
-  detailEnabled() {
+  detailEnabled () {
     return true
   }
 
-  detailWidth() {
+  detailWidth () {
     return 360
   }
 
-  detailIcon() {
+  detailIcon () {
     return null
   }
 
-  renderTitle({ style }) {
+  renderTitle ({ style }) {
     return <div style={style}>{this.menuName()}</div>
   }
 
-  renderNavigationMenu({ style, onTouchTap }) {
+  renderNavigationMenu ({ style, onTouchTap }) {
     return (
       <div style={style}>
         <IconButton onTouchTap={onTouchTap}>
@@ -163,23 +163,23 @@ class Base extends EventEmitter {
     )
   }
 
-  renderToolBar({ style }) {
+  renderToolBar ({ style }) {
     return <div style={style} />
   }
 
-  renderSnackBar({ style }) {
+  renderSnackBar ({ style }) {
     return <div style={style} />
   }
 
-  renderDetail({ style }) {
+  renderDetail ({ style }) {
     return <div style={style} />
   }
 
-  renderDragItems() {
+  renderDragItems () {
     return <div />
   }
 
-  renderDefaultError() {
+  renderDefaultError () {
     return (
       <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }} >
         <div
@@ -201,12 +201,12 @@ class Base extends EventEmitter {
     )
   }
 
-  renderContent() {
+  renderContent () {
     return <div>placeholder</div>
   }
 
   /* render error or content */
-  render(props) {
+  render (props) {
     if (this.state.error) return this.renderDefaultError(props)
     return this.renderContent(props)
   }

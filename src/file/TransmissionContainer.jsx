@@ -1,6 +1,5 @@
 import React from 'react'
 import i18n from 'i18n'
-import Debug from 'debug'
 import { ipcRenderer } from 'electron'
 import { List, AutoSizer } from 'react-virtualized'
 import { Paper, Menu, MenuItem } from 'material-ui'
@@ -15,10 +14,8 @@ import FlatButton from '../common/FlatButton'
 import DialogOverlay from '../common/DialogOverlay'
 import PureDialog from '../common/PureDialog'
 
-const debug = Debug('component:file:TrsContainer:')
-
 class TrsContainer extends React.Component {
-  constructor(props) {
+  constructor (props) {
     super(props)
 
     this.state = {
@@ -38,6 +35,7 @@ class TrsContainer extends React.Component {
       errors: null
     }
 
+    this.taskRefs = {}
     this.taskSelected = []
     this.finishSelected = []
 
@@ -66,7 +64,6 @@ class TrsContainer extends React.Component {
     }
 
     this.openMenu = (event, obj) => {
-      // debug('this.openMenu', obj.tasks)
       const containerDom = document.getElementById('content-container')
       const maxLeft = containerDom.offsetLeft + containerDom.clientWidth - 168
       const x = event.clientX > maxLeft ? maxLeft : event.clientX
@@ -95,20 +92,19 @@ class TrsContainer extends React.Component {
         if (e.button === 0) {
           if (isSelected) {
             /* cancel select */
-            const index = selectedArray.indexOf(id)
-            selectedArray.splice(index, 1)
-            this.refs[id].updateDom(!isSelected)
+            selectedArray.splice(selectedArray.indexOf(id), 1)
+            this.taskRefs[id].updateDom(!isSelected)
           } else {
             /* add select */
             selectedArray.push(id)
-            this.refs[id].updateDom(!isSelected)
+            this.taskRefs[id].updateDom(!isSelected)
           }
         }
       } else if (this.state.shift && e.button === 0) {
         /* shift */
         if (selectedArray.length === 0) {
           selectedArray.push(id)
-          this.refs[id].updateDom(true)
+          this.taskRefs[id].updateDom(true)
         } else {
           const userTasks = this.state.userTasks
           const finishTasks = this.state.finishTasks
@@ -138,17 +134,16 @@ class TrsContainer extends React.Component {
               uuid = finishTasks[i].uuid
             }
             selectedArray.push(uuid)
-            this.refs[uuid].updateDom(true)
+            this.taskRefs[uuid].updateDom(true)
           }
-          // debug('shift', lastSelect, lastIndex, id, currentIndex)
         }
       } else if (!(e.button === 2 && isSelected)) {
         /* select an item: no shift or ctrl, not right click a selected item */
         if (type === 'running') this.cleanTaskSelect()
         else this.cleanFinishSelect()
         selectedArray.push(id)
-        this.refs[id].updateDom(true)
-        this.setState({ tasks: [this.refs[id].props.task] })
+        this.taskRefs[id].updateDom(true)
+        this.setState({ tasks: [this.taskRefs[id].props.task] })
       }
 
       /* right click: open menu */
@@ -159,7 +154,7 @@ class TrsContainer extends React.Component {
 
         /* get selected tasks */
         selectedArray.forEach((item) => {
-          if (this.refs[item]) tasks.push(this.refs[item].props.task)
+          if (this.taskRefs[item]) tasks.push(this.taskRefs[item].props.task)
         })
 
         /* add play or pause option to running task */
@@ -176,8 +171,8 @@ class TrsContainer extends React.Component {
 
     this.cleanTaskSelect = () => {
       this.taskSelected.forEach((item) => {
-        if (this.refs[item]) {
-          this.refs[item].updateDom(false)
+        if (this.taskRefs[item]) {
+          this.taskRefs[item].updateDom(false)
         }
       })
       this.taskSelected.length = 0 // need to keep the same reference
@@ -185,8 +180,8 @@ class TrsContainer extends React.Component {
 
     this.cleanFinishSelect = () => {
       this.finishSelected.forEach((item) => {
-        if (this.refs[item]) {
-          this.refs[item].updateDom(false)
+        if (this.taskRefs[item]) {
+          this.taskRefs[item].updateDom(false)
         }
       })
       this.finishSelected.length = 0 // need to keep the same reference
@@ -207,17 +202,14 @@ class TrsContainer extends React.Component {
 
     /* type: 'PAUSE', 'RESUME', 'DELETE' */
     this.handleAll = (tasks, type) => {
-      // debug('ipcRenderer.send', `${type}_TASK`, tasks.map(t => t.uuid))
       ipcRenderer.send(`${type}_TASK`, tasks.map(t => t.uuid))
     }
 
     this.open = () => {
-      // debug('this.open', this.state.tasks)
       ipcRenderer.send('OPEN_TRANSMISSION', this.state.tasks.map(t => t.downloadPath))
     }
 
     this.openInDrive = () => {
-      // debug('this.openInDrive', this.state.tasks)
       const { driveUUID, dirUUID } = this.state.tasks[0]
       this.props.navToDrive(driveUUID, dirUUID)
     }
@@ -227,25 +219,23 @@ class TrsContainer extends React.Component {
     }
 
     this.updateTransmission = (e, userTasks, finishTasks) => {
-      // debug('this.updateTransmission', userTasks, finishTasks)
       this.setState({ userTasks, finishTasks })
     }
   }
 
-  componentDidMount() {
+  componentDidMount () {
     document.addEventListener('keydown', this.keydown)
     document.addEventListener('keyup', this.keyup)
     ipcRenderer.on('UPDATE_TRANSMISSION', this.updateTransmission)
   }
 
-  componentWillUnmount() {
+  componentWillUnmount () {
     document.removeEventListener('keydown', this.keydown)
     document.removeEventListener('keyup', this.keyup)
     ipcRenderer.removeListener('UPDATE_TRANSMISSION', this.updateTransmission)
   }
 
-  render() {
-    // debug('render TrsContainer')
+  render () {
     const userTasks = this.state.userTasks
     const finishTasks = this.state.finishTasks
 
@@ -284,20 +274,20 @@ class TrsContainer extends React.Component {
           </div>
           <div style={{ display: 'flex', alignItems: 'center' }}>
             {
-                allPaused ?
-                  <FlatButton
-                    label={i18n.__('Resume All')}
-                    disabled={!userTasks.length}
-                    icon={<PlaySvg style={{ color: '#000', opacity: 0.54 }} />}
-                    onTouchTap={() => this.handleAll(userTasks, 'RESUME')}
-                  /> :
-                  <FlatButton
-                    label={i18n.__('Pause All')}
-                    disabled={!userTasks.length}
-                    icon={<PauseSvg style={{ color: '#000', opacity: 0.54 }} />}
-                    onTouchTap={() => this.handleAll(userTasks, 'PAUSE')}
-                  />
-              }
+              allPaused
+                ? <FlatButton
+                  label={i18n.__('Resume All')}
+                  disabled={!userTasks.length}
+                  icon={<PlaySvg style={{ color: '#000', opacity: 0.54 }} />}
+                  onTouchTap={() => this.handleAll(userTasks, 'RESUME')}
+                />
+                : <FlatButton
+                  label={i18n.__('Pause All')}
+                  disabled={!userTasks.length}
+                  icon={<PauseSvg style={{ color: '#000', opacity: 0.54 }} />}
+                  onTouchTap={() => this.handleAll(userTasks, 'PAUSE')}
+                />
+            }
             <FlatButton
               label={i18n.__('Clear All')}
               disabled={!userTasks.length}
@@ -315,7 +305,7 @@ class TrsContainer extends React.Component {
     /* running task list */
     list.push(...userTasks.map((task, index) => (
       <RunningTask
-        ref={task.uuid}
+        ref={ref => (this.taskRefs[task.uuid] = ref)}
         key={task.uuid}
         trsType={task.trsType}
         index={index}
@@ -355,7 +345,7 @@ class TrsContainer extends React.Component {
     /* finished task list */
     list.push(...finishTasks.map((task, index) => (
       <FinishedTask
-        ref={task.uuid}
+        ref={ref => (this.taskRefs[task.uuid] = ref)}
         key={task.uuid}
         index={index}
         task={task}
@@ -397,7 +387,7 @@ class TrsContainer extends React.Component {
               overscanRowCount={3}
               style={{ outline: 'none' }}
             />
-            )}
+          )}
         </AutoSizer>
 
         {/* menu */}

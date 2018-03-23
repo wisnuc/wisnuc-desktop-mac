@@ -1,15 +1,13 @@
 import React from 'react'
 import i18n from 'i18n'
-import { IconButton } from 'material-ui'
 import ListIcon from 'material-ui/svg-icons/action/list'
-import RefreshIcon from 'material-ui/svg-icons/navigation/refresh'
 import UpdateIcon from 'material-ui/svg-icons/action/system-update-alt'
 
 import Base from './Base'
 import FirmwareUpdateApp from '../device/FirmwareUpdateApp'
 
 class FirmwareUpdate extends Base {
-  constructor(ctx) {
+  constructor (ctx) {
     super(ctx)
 
     this.state = {
@@ -27,40 +25,40 @@ class FirmwareUpdate extends Base {
     }
   }
 
-  willReceiveProps(nextProps) {
+  willReceiveProps (nextProps) {
     this.handleProps(nextProps.selectedDevice, ['firm'])
   }
 
-  navEnter(t) {
+  navEnter (t) {
     this.ctx.props.selectedDevice.request('firm')
     if (!t || !t.noMoreCheck) this.ctx.props.selectedDevice.pureRequest('checkUpdates')
   }
 
-  navGroup() {
+  navGroup () {
     return 'settings'
   }
 
-  menuName() {
+  menuName () {
     return i18n.__('FirmwareUpdate Menu Name')
   }
 
-  quickName() {
+  quickName () {
     return i18n.__('FirmwareUpdate Quick Name')
   }
 
-  menuIcon() {
+  menuIcon () {
     return UpdateIcon
   }
 
-  appBarStyle() {
+  appBarStyle () {
     return 'colored'
   }
 
-  detailIcon() {
+  detailIcon () {
     return ListIcon
   }
 
-  render({ openSnackBar }) {
+  render ({ openSnackBar }) {
     return (
       <div style={{ position: 'relative', width: '100%', height: '100%' }}>
         <FirmwareUpdateApp

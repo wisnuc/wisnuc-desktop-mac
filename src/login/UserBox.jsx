@@ -1,10 +1,10 @@
 import React from 'react'
 import i18n from 'i18n'
 import Radium from 'radium'
-import { Avatar, TextField, Paper, CircularProgress } from 'material-ui'
+import { Avatar, CircularProgress } from 'material-ui'
 import muiThemeable from 'material-ui/styles/muiThemeable'
 import { grey300, grey500, cyan300 } from 'material-ui/styles/colors'
-import { sharpCurve, sharpCurveDuration } from '../common/motion'
+import { sharpCurve } from '../common/motion'
 import FlatButton from '../common/FlatButton'
 
 import LoginBox from './LoginBox'
@@ -30,8 +30,8 @@ const RadiumAvatar = Radium(Avatar)
 
 let isFirst = true // only auto login the first time
 
-class NamedAvatar extends React.Component {
-  render() {
+class NamedAvatar extends React.PureComponent {
+  render () {
     const { style, name, selected, onTouchTap, uuid } = this.props
     let avatarUrl = null
     const index = global.config.users.findIndex(uc => uc && uc.userUUID === uuid && uc.weChat)
@@ -56,11 +56,13 @@ class NamedAvatar extends React.Component {
           >
             <div style={{ lineHeight: '24px', fontSize: 14 }}>
               {
-                avatarUrl ?
-                  <div style={{ borderRadius: 16, width: 32, height: 32, overflow: 'hidden' }}>
-                    <img width={32} height={32} alt="" src={avatarUrl} />
-                  </div> :
-                name.slice(0, 2).toUpperCase()
+                avatarUrl
+                  ? (
+                    <div style={{ borderRadius: 16, width: 32, height: 32, overflow: 'hidden' }}>
+                      <img width={32} height={32} alt="" src={avatarUrl} />
+                    </div>
+                  )
+                  : name.slice(0, 2).toUpperCase()
               }
             </div>
           </RadiumAvatar>
@@ -71,12 +73,12 @@ class NamedAvatar extends React.Component {
 }
 
 class UserBox extends React.Component {
-  constructor(props) {
+  constructor (props) {
     super(props)
 
     this.users = this.props.device.users.value().filter(u => !u.disabled)
     this.device = this.props.device.mdev
-    this.lastDevice = global.config && global.config.global.lastDevice || {}
+    this.lastDevice = (global.config && global.config.global.lastDevice) || {}
     this.lastUser = this.users.find(u => this.lastDevice.user && (u.uuid === this.lastDevice.user.uuid))
 
     this.state = {
@@ -124,7 +126,7 @@ class UserBox extends React.Component {
     }
   }
 
-  componentDidMount() {
+  componentDidMount () {
     isFirst = false
     if (this.state.auto) {
       this.props.toggleDisplay()
@@ -133,11 +135,11 @@ class UserBox extends React.Component {
     }
   }
 
-  componentWillUnmount() {
+  componentWillUnmount () {
     clearTimeout(this.timer)
   }
 
-  renderAvatar(user) {
+  renderAvatar (user) {
     const { username, uuid } = user
     let avatarUrl = null
     const index = global.config.users.findIndex(uc => uc && uc.userUUID === uuid && uc.weChat)
@@ -145,19 +147,23 @@ class UserBox extends React.Component {
     return (
       <div>
         {
-          avatarUrl ?
-            <div style={{ borderRadius: 48, width: 96, height: 96, overflow: 'hidden' }}>
-              <img width={96} height={96} alt="" src={avatarUrl} />
-            </div> :
-            <Avatar size={96} >
-              { username.slice(0, 2).toUpperCase() }
-            </Avatar>
+          avatarUrl
+            ? (
+              <div style={{ borderRadius: 48, width: 96, height: 96, overflow: 'hidden' }}>
+                <img width={96} height={96} alt="" src={avatarUrl} />
+              </div>
+            )
+            : (
+              <Avatar size={96} >
+                { username.slice(0, 2).toUpperCase() }
+              </Avatar>
+            )
         }
       </div>
     )
   }
 
-  renderAutoLogin(user) {
+  renderAutoLogin (user) {
     return (
       <div
         style={{
@@ -191,7 +197,7 @@ class UserBox extends React.Component {
     )
   }
 
-  render() {
+  render () {
     const users = this.props.device.users.value().filter(u => !u.disabled)
     const userSelected = this.state.selectedIndex > -1 ? users[this.state.selectedIndex] : null
     return (
@@ -210,39 +216,52 @@ class UserBox extends React.Component {
           }}
         >
           {
-            this.state.auto ?
-              <div style={{ width: '100%', height: this.state.open ? 216 : 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                { this.renderAvatar(this.lastUser) }
-              </div>
-              :
-              <div style={{ ...styles.flexWrap, padding: 8 }}>
-                {
-                  users.map((user, index) => (
-                    <NamedAvatar
-                      key={user.uuid}
-                      style={{ margin: users.length > 21 ? 6 : 7 }}
-                      name={user.username}
-                      uuid={user.uuid}
-                      selected={index === this.state.selectedIndex}
-                      onTouchTap={() => this.selectUser(index)}
-                    />
-                  ))
-                }
-              </div>
+            this.state.auto
+              ? (
+                <div
+                  style={{
+                    width: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    height: this.state.open ? 216 : 0
+                  }}
+                >
+                  { this.renderAvatar(this.lastUser) }
+                </div>
+              )
+              : (
+                <div style={{ ...styles.flexWrap, padding: 8 }}>
+                  {
+                    users.map((user, index) => (
+                      <NamedAvatar
+                        key={user.uuid}
+                        style={{ margin: users.length > 21 ? 6 : 7 }}
+                        name={user.username}
+                        uuid={user.uuid}
+                        selected={index === this.state.selectedIndex}
+                        onTouchTap={() => this.selectUser(index)}
+                      />
+                    ))
+                  }
+                </div>
+              )
           }
         </div>
 
         {
           this.state.auto ? this.renderAutoLogin(this.lastUser)
-            : <div style={{ width: '100%', boxSizing: 'border-box', paddingLeft: 0, paddingRight: 0 }}>
-              <LoginBox
-                open={this.state.selectedIndex !== -1}
-                device={this.props.device}
-                user={userSelected}
-                cancel={() => this.selectUser(-1)}
-                done={this.props.done}
-              />
-            </div>
+            : (
+              <div style={{ width: '100%', boxSizing: 'border-box', paddingLeft: 0, paddingRight: 0 }}>
+                <LoginBox
+                  open={this.state.selectedIndex !== -1}
+                  device={this.props.device}
+                  user={userSelected}
+                  cancel={() => this.selectUser(-1)}
+                  done={this.props.done}
+                />
+              </div>
+            )
         }
       </div>
     )

@@ -1,3 +1,5 @@
+/* global Power4 */
+
 import React from 'react'
 import EventListener from 'react-event-listener'
 import keycode from 'keycode'
@@ -18,7 +20,7 @@ class TransitionItem extends React.Component {
   }
   */
 
-  constructor(props) {
+  constructor (props) {
     super(props)
 
     this.requestClose = (buttonClicked) => {
@@ -55,26 +57,26 @@ class TransitionItem extends React.Component {
     }
   }
 
-  componentWillUnmount() {
+  componentWillUnmount () {
     clearTimeout(this.enterTimeout)
     clearTimeout(this.leaveTimeout)
   }
 
-  componentWillEnter(callback) {
+  componentWillEnter (callback) {
     this.componentWillAppear(callback)
   }
 
-  componentWillAppear(callback) {
+  componentWillAppear (callback) {
     this.animation('In')
     this.enterTimeout = setTimeout(callback, 450) // matches transition duration
   }
 
-  componentWillLeave(callback) {
+  componentWillLeave (callback) {
     this.animation('Out')
     this.leaveTimeout = setTimeout(callback, 450) // matches transition duration
   }
 
-  render() {
+  render () {
     return (
       <div
         style={{
@@ -123,18 +125,10 @@ class TransitionItem extends React.Component {
   }
 }
 
-export default class CDialog extends React.Component {
-  /*
-  static propTypes = {
-    open: PropTypes.bool.isRequired
-  }
-  */
+const CDialog = props => (
+  <ReactTransitionGroup>
+    { props.open && <TransitionItem {...props} /> }
+  </ReactTransitionGroup>
+)
 
-  render() {
-    return (
-      <ReactTransitionGroup>
-        {this.props.open && <TransitionItem {...this.props} />}
-      </ReactTransitionGroup>
-    )
-  }
-}
+export default CDialog

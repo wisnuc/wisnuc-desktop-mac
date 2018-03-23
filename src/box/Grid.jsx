@@ -1,13 +1,10 @@
 import React from 'react'
-import i18n from 'i18n'
-import { CircularProgress, Paper, Avatar, IconButton, RaisedButton, TextField } from 'material-ui'
-import CloseIcon from 'material-ui/svg-icons/navigation/close'
 import { AutoSizer } from 'react-virtualized'
 import Thumb from '../file/Thumb'
 import ScrollBar from '../common/ScrollBar'
 
 class Grid extends React.Component {
-  constructor(props) {
+  constructor (props) {
     super(props)
 
     this.state = {
@@ -15,7 +12,7 @@ class Grid extends React.Component {
     }
   }
 
-  renderGrid(digest, size) {
+  renderGrid (digest, size) {
     // console.log('renderGrid', digest)
     const hovered = this.state.hover === digest
     return (
@@ -36,7 +33,7 @@ class Grid extends React.Component {
     )
   }
 
-  renderRow({ index, key, style }) {
+  renderRow ({ index, key, style }) {
     const { items, size, num } = this.props
     const f = index * num
     return (
@@ -48,7 +45,7 @@ class Grid extends React.Component {
     )
   }
 
-  render() {
+  render () {
     const { items, size, num } = this.props
     const rowCount = Math.ceil(items.length / num)
     const rowHeight = size + 4
@@ -58,7 +55,6 @@ class Grid extends React.Component {
         <AutoSizer>
           {({ height, width }) => (
             <ScrollBar
-              style={{ outline: 'none' }}
               allHeight={rowCount * rowHeight}
               height={height}
               width={width}

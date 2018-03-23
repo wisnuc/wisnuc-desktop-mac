@@ -1,24 +1,19 @@
 import React from 'react'
 import i18n from 'i18n'
-import Debug from 'debug'
 import EventListener from 'react-event-listener'
 import { TweenMax } from 'gsap'
 import { IconButton, CircularProgress } from 'material-ui'
 import CloseIcon from 'material-ui/svg-icons/navigation/close'
-import DeleteIcon from 'material-ui/svg-icons/action/delete'
 import VisibilityOff from 'material-ui/svg-icons/action/visibility-off'
 import DownloadIcon from 'material-ui/svg-icons/file/file-download'
-import UploadIcon from 'material-ui/svg-icons/file/cloud-upload'
 import DialogOverlay from '../common/DialogOverlay'
 import FlatButton from '../common/FlatButton'
 
 import DetailContainer from './DetailContainer'
 import PhotoList from './PhotoList'
 
-const debug = Debug('component:photoApp:')
-
 class PhotoApp extends React.Component {
-  constructor(props) {
+  constructor (props) {
     super(props)
 
     this.state = {
@@ -59,17 +54,17 @@ class PhotoApp extends React.Component {
     }
   }
 
-  componentDidMount() {
+  componentDidMount () {
     document.addEventListener('keydown', this.keyChange)
     document.addEventListener('keyup', this.keyChange)
   }
 
-  componentWillUnmount() {
+  componentWillUnmount () {
     document.removeEventListener('keydown', this.keyChange)
     document.removeEventListener('keyup', this.keyChange)
   }
 
-  renderNoMedia() {
+  renderNoMedia () {
     return (
       <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }} >
         <div
@@ -92,30 +87,31 @@ class PhotoApp extends React.Component {
     )
   }
 
-  render() {
-    // debug('PhotoApp, this.props', this.props, this.state)
+  render () {
     return (
       <div style={{ position: 'relative', width: '100%', height: '100%', marginTop: 2 }}>
         <EventListener target="window" onResize={this.handleResize} />
 
         {/* PhotoList */}
         {
-           !this.props.media ?
-             <div
-               style={{
-                 position: 'relative',
-                 marginTop: -7,
-                 width: '100%',
-                 height: '100%',
-                 display: 'flex',
-                 alignItems: 'center',
-                 justifyContent: 'center'
-               }}
-             >
-               <CircularProgress />
-             </div> :
-            this.props.media.length ?
-              <PhotoList
+          !this.props.media
+            ? (
+              <div
+                style={{
+                  position: 'relative',
+                  marginTop: -7,
+                  width: '100%',
+                  height: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                <CircularProgress />
+              </div>
+            )
+            : this.props.media.length
+              ? (<PhotoList
                 media={this.props.media}
                 lookPhotoDetail={this.lookPhotoDetail}
                 ipcRenderer={this.props.ipcRenderer}
@@ -126,8 +122,9 @@ class PhotoApp extends React.Component {
                 getHoverPhoto={this.props.getHoverPhoto}
                 shiftStatus={this.props.shiftStatus}
                 headerHeight={66}
-              /> :
-              this.renderNoMedia()
+              />
+              )
+              : this.renderNoMedia()
         }
 
         {/* PhotoDetail */}

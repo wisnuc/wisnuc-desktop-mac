@@ -2,7 +2,8 @@ import React from 'react'
 import UUID from 'uuid'
 import i18n from 'i18n'
 import EventListener from 'react-event-listener'
-import { CircularProgress, Paper, Avatar } from 'material-ui'
+import { CircularProgress, Avatar } from 'material-ui'
+import InfoIcon from 'material-ui/svg-icons/action/info'
 import ContentAdd from 'material-ui/svg-icons/content/add'
 
 import UserSelect from './UserSelect'
@@ -12,16 +13,37 @@ import SelectMedia from './SelectMedia'
 import BoxUploadButton from './BoxUploadButton'
 
 import FlatButton from '../common/FlatButton'
-import { parseTime } from '../common/datetime'
+import { parseFullTime, parseTime } from '../common/datetime'
 import DialogOverlay from '../common/DialogOverlay'
 import ScrollBar from '../common/ScrollBar'
 
-const curve = 'all 450ms cubic-bezier(0.23, 1, 0.32, 1) 0ms'
-
-const imgUrl = 'http://wx.qlogo.cn/mmopen/vi_32/Q0j4TwGTfTKQiahrEc8rUfECDTUq94WlcaNkTYTKzIKr3p5xgOPQO1juvtwO1YSUCHOPpup3oWo1AP3nOBVyPCw/132'
+/*
+ * Rules to show timestamp
+ *
+ * 1. First tweet
+ * 2. last tweets's time is more than 3 min ago and is newer than the latest timestamp
+ * 3. last timestamp is more than 5 min ago
+ *
+ */
+const addTweetsTime = (tweets) => {
+  /* if not array or length eq 0, return the input */
+  if (!Array.isArray(tweets) || !tweets.length) return tweets
+  /* add the time msg */
+  let lt = 0 // last timestamp
+  const adjTweets = tweets.reduce((acc, cur, idx, arr) => {
+    if (!idx || (cur.ctime - arr[idx - 1].ctime > 3 * 60 * 1000 && cur.ctime > lt) || cur.ctime - lt > 5 * 60 * 1000) {
+      const msg = Object.assign({}, cur, { type: 'boxmessage', msg: parseFullTime(cur.ctime) })
+      acc.push(msg)
+      lt = cur.ctime
+    }
+    acc.push(cur)
+    return acc
+  }, [])
+  return adjTweets
+}
 
 class Groups extends React.Component {
-  constructor(props) {
+  constructor (props) {
     super(props)
 
     this.state = {
@@ -30,123 +52,217 @@ class Groups extends React.Component {
       newBox: false
     }
 
+    this.tcQueue = [] // the tweet creating queue
+
+    this.pushQueue = (uuid) => {
+      const index = this.tcQueue.indexOf(uuid)
+      if (index === -1) this.tcQueue.push(uuid)
+    }
+
+    this.popQueue = (uuid) => {
+      const index = this.tcQueue.indexOf(uuid)
+      if (index > -1) this.tcQueue.splice(index, 1)
+    }
+
+    /* set failed, excepting : 1. not fake, 2. finished, 3. running */
+    this.setFakeTweetState = ts => ts && ts.map(t => ((!t.faked || t.finished || this.tcQueue.indexOf(t.uuid) > -1) ? t
+      : Object.assign({}, t, { failed: true })))
+
+    this.sessions = {} // store tweets for local upload
+
+    this.WIP = null // Working in Process for requesting new tweet
+
     this.handleResize = () => this.forceUpdate()
 
     this.toggleDialog = op => this.setState({ [op]: !this.state[op] })
 
     this.toggleView = (view) => {
-      // console.log('view', view)
       this.setState({ view })
+    }
+
+    this.openNewBox = () => {
+      if (!window.navigator.onLine) this.props.openSnackBar(i18n.__('Offline Text'))
+      else this.setState({ newBox: true })
     }
 
     this.newBox = (users) => {
       const stationId = this.props.station.id
       const args = { name: '', users: [this.props.guid, ...(users.map(u => u.id))], stationId }
       this.props.apis.pureRequest('createBox', args, (err, res) => {
-        // console.log('this.newBox', args, err, res)
         this.setState({ newBox: false })
         if (err) this.props.openSnackBar(i18n.__('Create Box Failed'))
         else this.props.openSnackBar(i18n.__('Create Box Success'))
-        this.props.refresh({ index: 0 })
+        if (res && res.uuid) this.props.refresh({ boxUUID: res.uuid })
       })
     }
 
-    this.createNasTweets = (args) => {
-      // console.log('createNasTweets', args)
-      const { list, boxUUID } = args
+    this.createNasTweets = (args, retryTweet) => {
+      const { list, boxUUID, isMedia } = args
+      const box = this.props.boxes.find(b => b.uuid === boxUUID)
       const fakeList = list.map(l => Object.assign({ fakedata: {} }, l))
-      this.updateFakeTweet({ fakeList, boxUUID, isMedia: true })
+      /* create the fake tweet */
+      const tweet = retryTweet || this.updateFakeTweet({ fakeList, box, isMedia, raw: { type: 'indrive', args } })
+      this.pushQueue(tweet.uuid)
       this.props.apis.pureRequest('nasTweets', args, (err, res) => {
-        if (err) {
-          // console.log('create nasTweets error', err)
-          this.props.openSnackBar(i18n.__('Send Tweets with Nas Files Failed'))
+        if (err || !res || !res.uuid) {
+          console.error('create nasTweets error', err)
+          const newTweet = Object.assign({}, tweet, { failed: true })
+          this.popQueue(tweet.uuid)
+          this.updateDraft(newTweet)
+        } else {
+          // console.log('create nasTweets success', res)
+          const newTweet = Object.assign({}, tweet, { trueUUID: res.uuid, finished: true })
+          this.popQueue(tweet.uuid)
+          this.updateDraft(newTweet)
         }
-        this.props.refresh()
       })
     }
 
-    this.getTweets = (box, full) => {
-      if (full) this.setState({ tweets: null, tError: false })
+    this.updateDraft = (tweet) => {
+      this.props.ada.updateDraft(tweet.boxUUID, tweet)
+        .catch(error => console.error('this.updateDraft error', error))
+      const index = this.state.tweets.findIndex(t => t.uuid === tweet.uuid)
+      const tweets = [...this.state.tweets.slice(0, index), tweet, ...this.state.tweets.slice(index + 1)]
+      if (index > -1) this.setState({ tweets })
+    }
+
+    this.retryLocalUpload = (entries, args, tweet) => {
+      const session = UUID.v4()
+      this.sessions[session] = tweet
+      this.pushQueue(tweet.uuid)
+      this.props.ipcRenderer.send('BOX_RETRY_UPLOAD', { entries, args: Object.assign(args, { session }) })
+    }
+
+    this.retry = (tweet) => {
+      const { raw } = tweet
+      const newTweet = Object.assign({}, tweet, { failed: false })
+      const { type, args, entries } = raw
+      if (type === 'indrive') this.createNasTweets(args, tweet)
+      else this.retryLocalUpload(entries, args, tweet)
+      this.updateDraft(newTweet)
+    }
+
+    this.getTweets = (box, showLoading) => {
+      if (showLoading) this.setState({ tweets: null, tError: false }) // show loading state, such as the selected box changed
+
+      this.props.ada.removeAllListeners('tweets')
+      this.props.ada.getTweets(box.uuid).then((tweets) => {
+        this.WIP = null
+        this.updateTweets(box, tweets)
+      }).catch((e) => {
+        console.error('loadTweets error', e)
+        this.WIP = null
+        this.setState({ tError: true })
+      })
+    }
+
+    this.updateTweets = (box, tweets) => {
       this.preBox = box
       const getAuthor = id => box.users.find(u => u.id === id) || { id, nickName: i18n.__('Leaved Member') }
-      this.props.apis.pureRequest('tweets', { boxUUID: box.uuid, stationId: box.stationId }, (err, tweets) => {
-        // console.log('getTweets', err, tweets)
-        if (!err && Array.isArray(tweets)) {
-          this.setState({
-            tError: false,
-            tweets: (tweets || [])
-              .map(t => Object.assign({ author: getAuthor(t.tweeter.id), box, msg: this.props.getMsg(t, box) }, t))
-              .filter(t => t.type !== 'boxmessage' || (t.msg && t.author.avatarUrl)),
-            currentBox: box
-          })
-        } else {
-          this.setState({ tError: true })
-        }
+      this.setState({
+        tError: false,
+        tweets: (tweets || [])
+          .map(t => Object.assign({ author: getAuthor(t.tweeter.id), box, msg: this.props.getMsg(t, box) }, t))
+          .filter(t => t.type !== 'boxmessage' || (t.msg && t.author.avatarUrl)),
+        currentBox: box
       })
     }
 
-    this.updateFakeTweet = ({ fakeList, boxUUID, isMedia }) => {
-      if (!this.props.currentBox || this.props.currentBox.uuid !== boxUUID || !this.state.tweets) return
-      const author = this.props.currentBox.users.find(u => u.id === this.props.guid) || { id: this.props.guid }
+    this.updateFakeTweet = ({ fakeList, box, isMedia, raw }) => {
+      // console.log('this.updateFakeTweet', this.state)
+      const author = box.users.find(u => u.id === this.props.guid) || { id: this.props.guid }
+      const uuid = UUID.v4()
       const tweet = {
+        raw, // the original request args
+        uuid,
         author,
         isMedia,
-        box: this.props.currentBox,
+        tweeter: author,
+        box,
+        boxUUID: box.uuid,
         comment: '',
-        ctime: (new Date()).getTime(),
-        index: this.state.tweets.length,
+        ctime: new Date().getTime(),
+        rtime: new Date().getTime(),
+        index: this.state.tweets.length - 1,
         list: fakeList,
+        msg: '',
+        stationId: this.props.currentBox.stationId,
         type: 'list',
-        uuid: (new Date()).getTime()
+        faked: true,
+        _id: uuid
       }
-      this.setState({ tweets: [...this.state.tweets, tweet] })
+
+      this.props.ada.createDraft(tweet).catch(e => console.error('this.updateDraft error', e))
+      setImmediate(() => this.setState({ tweets: [...this.state.tweets, tweet] })) // set new state after tcQueue updated
+      return tweet
     }
 
     this.localUpload = (args) => {
-      // console.log('this.localUpload', args)
-      const { type, comment, box } = args
       const session = UUID.v4()
       this.props.ipcRenderer.send('BOX_UPLOAD', Object.assign({ session }, args))
     }
 
     this.onFakeData = (event, args) => {
-      const { session, boxUUID, success, fakeList } = args
-      // console.log('this.onFakeData', args)
+      const { session, box, success, fakeList, raw } = args
       if (!success) {
         this.props.openSnackBar(i18n.__('Read Local Files Failed'))
       } else {
-        this.updateFakeTweet({ fakeList, boxUUID })
+        const tweet = this.updateFakeTweet({ fakeList, box, raw })
+        this.pushQueue(tweet.uuid)
+        this.sessions[session] = tweet
       }
     }
 
     this.onLocalFinish = (event, args) => {
-      const { session, boxUUID, success } = args
+      const { session, box, success, data } = args
+      const tweet = this.sessions[session]
+      if (!tweet) return
       if (!success) {
         this.props.openSnackBar(i18n.__('Send Tweets with Local Files Failed'))
-      } else if (this.props.currentBox && this.props.currentBox.uuid === boxUUID) {
-        // console.log('this.onLocalFinish success')
-        this.getTweets(this.props.currentBox)
+        const newTweet = Object.assign({}, tweet, { failed: true, boxUUID: box.uuid })
+        this.popQueue(tweet.uuid)
+        this.updateDraft(newTweet)
+      } else {
+        // console.log('create tweets via local success', data)
+        const newTweet = Object.assign({}, tweet, { finished: true, trueUUID: data.uuid, boxUUID: box.uuid })
+        this.popQueue(tweet.uuid)
+        this.updateDraft(newTweet)
       }
     }
 
     this.onScroll = top => this.refBar && (this.refBar.style.top = `${top}px`)
   }
 
-  componentDidMount() {
+  componentDidMount () {
     this.props.ipcRenderer.on('BOX_UPLOAD_FAKE_DATA', this.onFakeData)
     this.props.ipcRenderer.on('BOX_UPLOAD_RESULT', this.onLocalFinish)
   }
 
-  componentWillReceiveProps(nextProps) {
-    // console.log('componentWillReceiveProps', nextProps)
+  componentWillReceiveProps (nextProps) {
     if (nextProps.currentBox) {
-      const isSame = this.preBox && nextProps.currentBox && this.preBox.uuid === nextProps.currentBox.uuid
-      this.getTweets(nextProps.currentBox, !isSame)
+      /* check if change box */
+      const nextBoxUUID = nextProps.currentBox && nextProps.currentBox.uuid
+      const currBoxUUID = this.preBox && this.preBox.uuid
+      const showLoading = !(nextBoxUUID && currBoxUUID && nextBoxUUID === currBoxUUID)
+
+      /* check if have new stored tweets */
+      const lti = nextProps.currentBox.ltsst && nextProps.currentBox.ltsst.index // last tweet's rtime
+      const currentTweet = this.state.tweets && this.state.tweets.slice(-1)[0]
+      const cti = currentTweet && currentTweet.index // current latest tweet's ctime
+      // console.log('before getTweets', nextProps.currentBox, currentTweet)
+      if ((!showLoading && lti && lti <= cti) || this.WIP === nextBoxUUID) return // same box and no new tweets
+      // console.log('will getTweets', showLoading, lti, cti, this.WIP)
+      this.WIP = nextBoxUUID
+      this.getTweets(nextProps.currentBox, showLoading)
     }
   }
 
+  componentWillUnmount () {
+    this.props.ipcRenderer.removeAllListeners('BOX_UPLOAD_FAKE_DATA')
+    this.props.ipcRenderer.removeAllListeners('BOX_UPLOAD_RESULT')
+  }
 
-  renderNoBoxes() {
+  renderNoBoxes () {
     return (
       <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
         <div style={{ flexGrow: 1 }} />
@@ -158,7 +274,7 @@ class Groups extends React.Component {
     )
   }
 
-  renderAvatars(users) {
+  renderAvatars (users) {
     const n = Math.min(users.length, 5)
     const r = 20 * n / (2.5 * n - 1.5) // radius
     return (
@@ -184,12 +300,13 @@ class Groups extends React.Component {
     )
   }
 
-  renderBox({ key, index, style }) {
+  renderBox ({ key, index, style }) {
     const box = this.props.boxes[index]
-    const isOffline = !(box && box.station && box.station.isOnline)
-    const { ltime, name, uuid, users, lcomment } = box
+    const { ltime, name, uuid, users, lcomment, nmc, station, deleted } = box
+    const isOffline = !(station && station.isOnline)
     const selected = this.props.currentBox && (this.props.currentBox.uuid === uuid)
     const hovered = this.state.hover === index
+    const newMsg = !selected && (nmc || 0)
 
     /* width: 376 = 2 + 32 + 40 + 16 + 142 + 120 + 24 + 16 */
     return (
@@ -218,21 +335,42 @@ class Groups extends React.Component {
                 { name || users.slice(0, 4).map(u => u.nickName).join(', ') }
               </div>
               <div style={{ width: 100, textAlign: 'right', fontSize: 12, color: 'rgba(0,0,0,.54)' }}>
-                { isOffline ? i18n.__('Offline') : parseTime(ltime) }
+                { deleted ? i18n.__('Deleted Box') : isOffline ? i18n.__('Offline') : parseTime(ltime) }
               </div>
             </div>
-            <div
-              style={{
-                width: 262,
-                height: 24,
-                fontSize: 14,
-                color: 'rgba(0,0,0,.54)',
-                overflow: 'hidden',
-                whiteSpace: 'nowrap',
-                textOverflow: 'ellipsis'
-              }}
-            >
-              { lcomment }
+            <div style={{ width: 262, display: 'flex', alignItems: 'center' }}>
+              <div
+                style={{
+                  width: 238,
+                  height: 24,
+                  fontSize: 14,
+                  color: 'rgba(0,0,0,.54)',
+                  overflow: 'hidden',
+                  whiteSpace: 'nowrap',
+                  textOverflow: 'ellipsis'
+                }}
+              >
+                { lcomment }
+              </div>
+              {
+                newMsg > 0 &&
+                  <div
+                    style={{
+                      width: 18,
+                      height: 18,
+                      fontSize: 11,
+                      color: '#FFF',
+                      fontWeight: 500,
+                      backgroundColor: 'red',
+                      borderRadius: 9,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}
+                  >
+                    { newMsg < 99 ? newMsg : 99 }
+                  </div>
+              }
             </div>
           </div>
           <div style={{ width: 24 }} />
@@ -241,7 +379,7 @@ class Groups extends React.Component {
     )
   }
 
-  renderLoading(size) {
+  renderLoading (size) {
     return (
       <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }} >
         <CircularProgress size={size || 64} />
@@ -249,14 +387,14 @@ class Groups extends React.Component {
     )
   }
 
-  render() {
-    // console.log('Groups', this.state, this.props)
+  render () {
     const { boxes, currentBox, station, guid, ipcRenderer, apis } = this.props
-    const { primaryColor, refresh, openSnackBar, getUsers } = this.props
+    if (!boxes) return this.renderLoading(32)
+    const { primaryColor, openSnackBar, getUsers } = this.props
     const { tweets, tError } = this.state
-    const boxH = boxes && Math.min(window.innerHeight - 106, boxes.length * 72) || 0
+    const boxH = (boxes && Math.min(window.innerHeight - 106 - (this.props.boxError ? 32 : 0), boxes.length * 72)) || 0
     const boxUUID = currentBox && currentBox.uuid
-    const currentUser = currentBox && currentBox.users.find(u => u.id === guid) || {}
+    const currentUser = (currentBox && currentBox.users.find(u => u.id === guid)) || {}
     const stationId = currentBox && currentBox.stationId
     const diffStation = !station || station.id !== stationId
     return (
@@ -275,51 +413,60 @@ class Groups extends React.Component {
         <EventListener target="window" onResize={this.handleResize} />
 
         {/* boxes */}
-        <div style={{ width: 376, height: '100%', overflow: 'auto' }}>
-          {
-            !boxes ? this.renderLoading(32) : (
-              <div style={{ width: '100%', height: '100%', position: 'relative', backgroundColor: '#FFF', overflow: 'hidden' }}>
-                <div style={{ height: 8 }} />
-                {/* new Box */}
-                <div style={{ marginLeft: 32, height: 24 }}>
-                  <FlatButton
-                    style={{ lineHeight: '', height: 24 }}
-                    label={i18n.__('New Box')}
-                    onTouchTap={() => this.setState({ newBox: true })}
-                    disabled={!station || !station.id}
-                    icon={<ContentAdd color="rgba(0,0,0,.54)" style={{ marginLeft: 4, marginTop: -2 }} />}
-                    labelStyle={{ fontSize: 12, color: 'rgba(0,0,0,.54)', marginLeft: -4 }}
-                  />
-                </div>
+        <div style={{ width: 376, height: '100%', position: 'relative', backgroundColor: '#FFF', overflow: 'hidden' }}>
+          <div style={{ height: 8 }} />
+          {/* new Box */}
+          <div style={{ marginLeft: 32, height: 24, display: 'flex', alignItems: 'center' }}>
+            <FlatButton
+              style={{ lineHeight: '', height: 24 }}
+              label={i18n.__('New Box')}
+              onTouchTap={this.openNewBox}
+              disabled={!station || !station.id}
+              icon={<ContentAdd color="rgba(0,0,0,.54)" style={{ marginLeft: 4, marginTop: -2 }} />}
+              labelStyle={{ fontSize: 12, color: 'rgba(0,0,0,.54)', marginLeft: -4 }}
+            />
+            <div style={{ width: 228 }} />
+            { this.props.boxLoading && <CircularProgress size={16} thickness={1.5} /> }
+          </div>
 
-                {/* Boxes: react-virtualized with custom scrollBar */}
-                {
-                  boxes.length > 0 ?
-                    <ScrollBar
-                      style={{ outline: 'none' }}
-                      allHeight={72 * boxes.length}
-                      height={boxH}
-                      width={376}
-                      rowCount={boxes.length}
-                      rowHeight={72}
-                      rowRenderer={({ index, key, style }) => this.renderBox({ index, key, style })}
-                    />
-                    : this.renderNoBoxes()
-                }
+          {
+            this.props.boxError &&
+              <div style={{ height: 32, backgroundColor: '#FFCDD2', display: 'flex', alignItems: 'center' }}>
+                <div style={{ width: 40 }} />
+                <InfoIcon color="#F44336" />
+                <div style={{ width: 20 }} />
+                <div style={{ fontSize: 12 }}> { i18n.__('Get Boxes Error') } </div>
               </div>
-            )
+          }
+
+          {/* Boxes: react-virtualized with custom scrollBar */}
+          {
+            boxes.length > 0
+              ? <ScrollBar
+                allHeight={72 * boxes.length}
+                height={boxH}
+                width={376}
+                rowCount={boxes.length}
+                rowHeight={72}
+                rowRenderer={({ index, key, style }) => this.renderBox({ index, key, style })}
+              />
+              : this.renderNoBoxes()
           }
         </div>
 
         {/* tweets */}
-        <Tweets
-          tError={tError}
-          guid={guid}
-          tweets={currentBox ? tweets : []}
-          box={currentBox}
-          ipcRenderer={ipcRenderer}
-          apis={apis}
-        />
+        {
+          currentBox &&
+            <Tweets
+              retry={this.retry}
+              tError={tError}
+              guid={guid}
+              tweets={addTweetsTime(this.setFakeTweetState(tweets))}
+              box={currentBox}
+              ipcRenderer={ipcRenderer}
+              apis={apis}
+            />
+        }
 
         {/* FAB */}
         {
@@ -331,6 +478,7 @@ class Groups extends React.Component {
               localUpload={this.localUpload}
               offline={false}
               diffStation={diffStation}
+              openSnackBar={openSnackBar}
             />
         }
 
@@ -342,7 +490,6 @@ class Groups extends React.Component {
               currentUser={currentUser}
               boxUUID={boxUUID}
               stationId={stationId}
-              refresh={refresh}
               ipcRenderer={ipcRenderer}
               primaryColor={primaryColor}
               openSnackBar={openSnackBar}
@@ -359,7 +506,6 @@ class Groups extends React.Component {
               currentUser={currentUser}
               boxUUID={boxUUID}
               stationId={stationId}
-              refresh={refresh}
               ipcRenderer={ipcRenderer}
               primaryColor={primaryColor}
               openSnackBar={openSnackBar}
@@ -380,7 +526,7 @@ class Groups extends React.Component {
               title={i18n.__('Create New Box')}
               getUsers={getUsers}
             />
-            }
+          }
         </DialogOverlay>
       </div>
     )

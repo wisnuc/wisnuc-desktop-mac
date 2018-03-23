@@ -1,72 +1,94 @@
-import fs from 'fs'
-import path from 'path'
-import Debug from 'debug'
-import rimraf from 'rimraf'
-import UUID from 'uuid'
-import request from 'superagent'
-import { ipcMain } from 'electron'
-import store from './store'
+const path = require('path')
+const Promise = require('bluebird')
+const rimraf = require('rimraf')
+const UUID = require('uuid')
+const request = require('superagent')
+const { ipcMain } = require('electron')
+const fs = Promise.promisifyAll(require('fs'))
 
-Promise.promisifyAll(fs) // babel would transform Promise to bluebird
+const store = require('./store')
 
-const debug = Debug('node:lib:server')
 const getTmpPath = () => store.getState().config.tmpPath
 const getTmpTransPath = () => store.getState().config.tmpTransPath
 
 const cloudAddress = 'http://www.siyouqun.com:80'
 
-export const clearTmpTrans = () => {
-  // console.log('clearTmpTrans', `${getTmpTransPath()}/*`)
-  rimraf(`${getTmpTransPath()}/*`, e => e && console.log('clearTmpTrans error', e))
+const clearTmpTrans = () => {
+  rimraf(`${getTmpTransPath()}/*`, e => e && console.error('clearTmpTrans error', e))
 }
 
 /* init request */
 let stationID = null
 let address = null
 let token = null
+let cloud = false
 
 ipcMain.on('LOGIN', (event, device, user) => {
   address = device.mdev.address
   token = device.token.data.token
-  stationID = device.token.data.stationID
-  debug('Got device, address, token, stationID: ', address, stationID)
+  cloud = !!device.mdev.isCloud
+  const info = device.info
+  if (info && info.data) stationID = info.data.id
 })
 
-export const isCloud = () => !!stationID
+const isCloud = () => cloud
 
+/* adapter of cloud api */
 const reqCloud = (ep, data, type) => {
   const url = `${address}/c/v1/stations/${stationID}/json`
   const url2 = `${address}/c/v1/stations/${stationID}/pipe`
   const resource = Buffer.from(`/${ep}`).toString('base64')
-  // debug('reqCloud', type, ep)
   if (type === 'GET') return request.get(url).set('Authorization', token).query({ resource, method: type })
   if (type === 'DOWNLOAD') return request.get(url2).set('Authorization', token).query({ resource, method: 'GET' })
   return request.post(url).set('Authorization', token).send(Object.assign({ resource, method: type }, data))
 }
 
 const aget = (ep) => {
-  if (stationID) return reqCloud(ep, null, 'GET')
+  if (cloud) return reqCloud(ep, null, 'GET')
   return request
     .get(`http://${address}:3000/${ep}`)
     .set('Authorization', `JWT ${token}`)
 }
 
-const adownload = (ep) => {
-  if (stationID) return reqCloud(ep, null, 'DOWNLOAD')
+const adownload = (ep, bToken) => {
+  if (cloud) return reqCloud(ep, null, 'DOWNLOAD')
+  const newToken = bToken ? `JWT ${bToken} ${token}` : `JWT ${token}`
   return request
     .get(`http://${address}:3000/${ep}`)
-    .set('Authorization', `JWT ${token}`)
+    .set('Authorization', newToken)
 }
 
+/* download box resouces via cloud */
 const cdownload = (ep, station) => {
-  const { stationId, wxToken } = station
-  const url = `${cloudAddress}/c/v1/stations/${stationId}/pipe`
+  const { stationId, wxToken, boxUUID } = station
+  const url = `${cloudAddress}/c/v1/boxes/${boxUUID}/stations/${stationId}/pipe`
   const resource = Buffer.from(`/${ep}`).toString('base64')
   return request.get(url).set('Authorization', wxToken).query({ resource, method: 'GET' })
 }
 
+/* request box local token, callback error or bToken */
+let storedToken = null
+const getBToken = (guid, callback) => {
+  if (storedToken && storedToken.guid === guid && (new Date().getTime() - storedToken.ctime < 6000000)) {
+    setImmediate(() => callback(null, storedToken.token))
+  } else {
+    const r = aget('cloudToken').query({ guid })
+    r.end((err, res) => {
+      if (err) console.error('getBToken error', err)
+      if (err) callback(err, null)
+      else if (!res || !res.body || !res.body.token) {
+        const error = new Error('no token')
+        callback(error, null)
+      } else {
+        storedToken = { guid, token: res.body.token, ctime: new Date().getTime() }
+        callback(null, res.body.token)
+      }
+    })
+  }
+}
+
 const apost = (ep, data) => {
-  if (stationID) return reqCloud(ep, data, 'POST')
+  if (cloud) return reqCloud(ep, data, 'POST')
   const r = request
     .post(`http://${address}:3000/${ep}`)
     .set('Authorization', `JWT ${token}`)
@@ -82,8 +104,7 @@ get json data from server
 @param {function} callback
 */
 
-export const serverGet = (endpoint, callback) => {
-  // debug('serverGet', endpoint)
+const serverGet = (endpoint, callback) => {
   aget(endpoint).end((err, res) => {
     if (err) return callback(Object.assign({}, err, { response: err.response && err.response.body }))
     if (res.status !== 200 && res.status !== 206) {
@@ -97,7 +118,7 @@ export const serverGet = (endpoint, callback) => {
   })
 }
 
-export const serverGetAsync = Promise.promisify(serverGet)
+const serverGetAsync = Promise.promisify(serverGet)
 
 /**
 Upload multiple files in one request.post
@@ -116,8 +137,8 @@ Upload multiple files in one request.post
 @param {function} callback
 */
 
-export class UploadMultipleFiles {
-  constructor(driveUUID, dirUUID, Files, callback) {
+class UploadMultipleFiles {
+  constructor (driveUUID, dirUUID, Files, callback) {
     this.driveUUID = driveUUID
     this.dirUUID = dirUUID
     this.Files = Files
@@ -125,7 +146,7 @@ export class UploadMultipleFiles {
     this.handle = null
   }
 
-  localUpload() {
+  localUpload () {
     this.handle = apost(`drives/${this.driveUUID}/dirs/${this.dirUUID}/entries`)
     this.Files.forEach((file) => {
       const { name, parts, readStreams, policy } = file
@@ -151,19 +172,18 @@ export class UploadMultipleFiles {
     })
 
     this.handle.end((err, res) => {
-      // console.log('localUpload this.handle.end', err, res && res.body)
       if (err) this.finish(err)
       else if (res && res.statusCode === 200) this.finish(null)
       else this.finish(res.body)
     })
   }
 
-  cloudUpload() {
+  cloudUpload () {
     if (this.finished) return
     const ep = `drives/${this.driveUUID}/dirs/${this.dirUUID}/entries`
     const file = this.Files[0]
 
-    const { name, parts, readStreams, policy } = file
+    const { name, parts, readStreams } = file
     const rs = readStreams[0]
     const part = parts[0]
 
@@ -180,7 +200,6 @@ export class UploadMultipleFiles {
     }
     this.handle = request.post(url).set('Authorization', token).field('manifest', JSON.stringify(option)).attach(name, rs)
 
-    // debug('cloudUpload', name, policy)
     this.handle.on('error', (err) => {
       this.finish(err)
     })
@@ -192,7 +211,7 @@ export class UploadMultipleFiles {
     })
   }
 
-  remove() {
+  remove () {
     const ep = `drives/${this.driveUUID}/dirs/${this.dirUUID}/entries`
     const file = this.Files[0]
     const { name, policy } = file
@@ -200,33 +219,29 @@ export class UploadMultipleFiles {
     const resource = Buffer.from(`/${ep}`).toString('base64')
     this.handle = request.post(url).set('Authorization', token)
       .send({ resource, method: 'POST', toName: name, uuid: policy.remoteUUID, op: 'remove' })
-      .end((err, res) => {
-        debug('remove !!!!', err, res && res.body)
+      .end((err) => {
         this.handle = null
         if (err) this.finish(err)
         else this.cloudUpload()
-        // else setImmediate(() => this.cloudUpload())
       })
   }
 
-  upload() {
-    if (stationID && this.Files[0].policy && this.Files[0].policy.mode === 'replace') this.remove()
-    else if (stationID) this.cloudUpload()
+  upload () {
+    if (cloud && this.Files[0].policy && this.Files[0].policy.mode === 'replace') this.remove()
+    else if (cloud) this.cloudUpload()
     else this.localUpload()
   }
 
-  finish(error) {
-    // debug('cloudUpload error', error)
+  finish (error) {
     if (this.finished) return
     if (error) {
-      debug('upload error', error.response && error.response.body)
       error.response = error.response && error.response.body
     }
     this.finished = true
     this.callback(error)
   }
 
-  abort() {
+  abort () {
     this.finished = true
     if (this.handle) this.handle.abort()
   }
@@ -245,8 +260,8 @@ download a entire file or part of file
 @param {function} callback
 */
 
-export class DownloadFile {
-  constructor(endpoint, qs, fileName, size, seek, stream, station, callback) {
+class DownloadFile {
+  constructor (endpoint, qs, fileName, size, seek, stream, station, callback) {
     this.endpoint = endpoint
     this.qs = qs
     this.fileName = fileName
@@ -258,7 +273,7 @@ export class DownloadFile {
     this.handle = null
   }
 
-  download() {
+  normalDownload () {
     this.handle = this.station ? cdownload(this.endpoint, this.station) : adownload(this.endpoint)
     if (this.size && this.size === this.seek) return setImmediate(() => this.finish(null))
     if (this.size) this.handle.set('Range', `bytes=${this.seek}-`)
@@ -267,7 +282,6 @@ export class DownloadFile {
       .on('error', error => this.finish(error))
       .on('response', (res) => {
         if (res.status !== 200 && res.status !== 206) {
-          debug('download http status code not 200', res.error)
           const e = new Error()
           e.message = res.error
           e.code = res.code
@@ -281,13 +295,52 @@ export class DownloadFile {
     return null
   }
 
-  abort() {
+  forceLocalDownload () {
+    const { guid, isMedia } = this.station
+    getBToken(guid, (err, bToken) => {
+      if (err) {
+        console.error('getBToken error', err)
+        this.normalDownload() // retry download via cloud
+      } else {
+        /* access box file need bToken, however box media does not !!! */
+        this.handle = adownload(this.endpoint, isMedia ? null : bToken)
+        if (this.size && this.size === this.seek) return setImmediate(() => this.finish(null))
+        if (this.size) this.handle.set('Range', `bytes=${this.seek}-`)
+        this.handle
+          .query(this.qs)
+          .on('error', error => this.finish(error))
+          .on('response', (res) => {
+            if (res.status !== 200 && res.status !== 206) {
+              console.error('download http status code not 200', res.error)
+              const e = new Error()
+              e.message = res.error
+              e.code = res.code
+              e.status = res.status
+              this.handle.abort()
+              this.finish(e)
+            }
+            res.on('end', () => this.finish(null))
+          })
+        this.handle.pipe(this.stream)
+        return null
+      }
+      return null
+    })
+  }
+
+  download () {
+    const localable = !cloud && stationID && this.station && stationID === this.station.stationId
+    if (localable) this.forceLocalDownload()
+    else this.normalDownload()
+  }
+
+  abort () {
     if (this.finished) return
     this.finish(null)
     if (this.handle) this.handle.abort()
   }
 
-  finish(error) {
+  finish (error) {
     if (this.finished) return
     if (error) {
       error.response = error.response && error.response.body
@@ -335,11 +388,11 @@ createFold -> if error -> remove -> retry createFold -> callback
 TODO: fix this callback hell
 */
 
-export const createFold = (driveUUID, dirUUID, dirname, localEntries, policy, callback) => {
+const createFold = (driveUUID, dirUUID, dirname, localEntries, policy, callback) => {
   const parents = true // mkdirp
   const ep = `drives/${driveUUID}/dirs/${dirUUID}/entries`
   let handle = null
-  if (stationID) {
+  if (cloud) {
     const url = `${address}/c/v1/stations/${stationID}/json`
     const resource = Buffer.from(`/${ep}`).toString('base64')
     handle = request.post(url).set('Authorization', token)
@@ -353,20 +406,18 @@ export const createFold = (driveUUID, dirUUID, dirname, localEntries, policy, ca
 
   handle.end((error, res) => {
     if (error) {
-      debug('createFold error', error.response && error.response.body, driveUUID, dirUUID, dirname, policy)
+      console.error('createFold error', error.response && error.response.body, driveUUID, dirUUID, dirname, policy)
       if (policy.mode === 'overwrite' || policy.mode === 'merge') {
         /* when a file with the same name in remote, retry if given policy of overwrite or merge */
         serverGetAsync(`drives/${driveUUID}/dirs/${dirUUID}`)
           .then((listNav) => {
-            const entries = stationID ? listNav.data.entries : listNav.entries
-            // debug('retry creat fold entries', entries)
+            const entries = cloud ? listNav.data.entries : listNav.entries
             const index = entries.findIndex(e => e.name === dirname)
             if (index > -1) {
               const nameSpace = [...entries.map(e => e.name), localEntries.map(e => path.parse(e).base)]
               const mode = policy.mode === 'overwrite' ? 'replace' : 'rename'
               const checkedName = policy.mode === 'overwrite' ? dirname : getName(dirname, nameSpace)
               const remoteUUID = entries[index].uuid
-              debug('retry createFold', dirname, mode, checkedName, remoteUUID)
               createFold(driveUUID, dirUUID, checkedName, localEntries, { mode, checkedName, remoteUUID }, callback)
             } else callback(res.body)
           })
@@ -376,19 +427,17 @@ export const createFold = (driveUUID, dirUUID, dirname, localEntries, policy, ca
         createFold(driveUUID, dirUUID, dirname, localEntries, Object.assign({ retry: true }, policy), callback)
       } else callback(Object.assign({}, error, { response: error.response && error.response.body }))
     } else if (res && res.statusCode === 200) {
-      // debug('createFold handle.end res.statusCode 200', res.body)
       /* mode === 'replace' && stationID: need to retry creatFold */
-      if (stationID && policy && policy.mode === 'replace') createFold(driveUUID, dirUUID, dirname, localEntries, { mode: 'normal' }, callback)
+      if (cloud && policy && policy.mode === 'replace') createFold(driveUUID, dirUUID, dirname, localEntries, { mode: 'normal' }, callback)
       /* callback the created dir entry */
-      else callback(null, stationID ? res.body.data : res.body[res.body.length - 1].data)
+      else callback(null, cloud ? res.body.data : res.body[res.body.length - 1].data)
     } else {
-      debug('createFold no error but res not 200', res.body)
       callback(res.body) // response code not 200 and no policy
     }
   })
 }
 
-export const createFoldAsync = Promise.promisify(createFold)
+const createFoldAsync = Promise.promisify(createFold)
 
 /**
 download tmp File
@@ -399,44 +448,69 @@ download tmp File
 @param {string} fileName
 @param {string} downloadPath
 @param {function} callback
+
+file type: [media, boxFiles, driveFiles]
 */
 
-export const downloadFile = (driveUUID, dirUUID, entryUUID, fileName, downloadPath, callback) => {
-  const filePath = downloadPath ? path.join(downloadPath, fileName) : path.join(getTmpPath(), `${entryUUID}AND${fileName}`)
+const downloadReq = (ep, fileName, filePath, station, bToken, callback) => {
+  const tmpPath = path.join(getTmpTransPath(), UUID.v4())
+  const stream = fs.createWriteStream(tmpPath)
+  stream.on('error', err => callback(err))
+  stream.on('finish', () => {
+    fs.rename(tmpPath, filePath, (err) => {
+      if (err) return callback(err)
+      return callback(null, filePath)
+    })
+  })
+
+  const handle = bToken ? adownload(ep, bToken) : station ? cdownload(ep, station) : adownload(ep)
+
+  handle.query({ name: fileName })
+    .on('error', err => callback(Object.assign({}, err, { response: err.response && err.response.body })))
+    .on('response', (res) => {
+      if (res.status !== 200 && res.status !== 206) {
+        console.error('download http status code not 200', res.error)
+        const e = new Error()
+        e.message = res.error
+        e.code = res.code
+        e.status = res.status
+        handle.abort()
+        callback(e)
+      }
+    })
+
+  handle.pipe(stream)
+}
+
+const downloadFile = (entry, downloadPath, callback) => {
+  const { driveUUID, dirUUID, entryUUID, fileName, station } = entry
+  const filePath = downloadPath ? path.join(downloadPath, fileName)
+    : path.join(getTmpPath(), `${entryUUID.slice(0, 64)}AND${fileName}`)
+
+  /* check local file cache */
   fs.access(filePath, (error) => {
     if (error) {
-      debug('no cache download file', fileName)
-      const tmpPath = path.join(getTmpTransPath(), UUID.v4())
-      const stream = fs.createWriteStream(tmpPath)
-      stream.on('error', err => callback(err))
-      stream.on('finish', () => {
-        fs.rename(tmpPath, filePath, (err) => {
-          if (err) return callback(err)
-          return callback(null, filePath)
-        })
-      })
+      const ep = dirUUID === 'media' ? `media/${entryUUID}`
+        : dirUUID === 'boxFiles' ? `boxes/${station.boxUUID}/files/${entryUUID.slice(0, 64)}`
+          : `drives/${driveUUID}/dirs/${dirUUID}/entries/${entryUUID}`
 
-      const handle = adownload(dirUUID === 'media' ? `media/${entryUUID}` : `drives/${driveUUID}/dirs/${dirUUID}/entries/${entryUUID}`)
-      handle.query({ name: fileName })
-        .on('error', err => callback(Object.assign({}, err, { response: err.response && err.response.body })))
-        .on('response', (res) => {
-          if (res.status !== 200 && res.status !== 206) {
-            console.log('download http status code not 200', res.error)
-            const e = new Error()
-            e.message = res.error
-            e.code = res.code
-            e.status = res.status
-            handle.abort()
-            callback(e)
-          }
+      /* check whether boxFile and localable */
+      const localable = !cloud && stationID && station && stationID === station.stationId
+      if (localable) {
+        /* get box token */
+        getBToken(station.guid, (err, bToken) => {
+          if (err) {
+            console.error('getBToken error', err)
+            downloadReq(ep, fileName, filePath, station, null, callback)
+          } else downloadReq(ep, fileName, filePath, station, bToken, callback)
         })
-      handle.pipe(stream)
+      } else downloadReq(ep, fileName, filePath, station, null, callback)
     } else callback(null, filePath)
   })
 }
 
-export const uploadTorrent = (dirUUID, rs, part, callback) => {
-  if (stationID) {
+const uploadTorrent = (dirUUID, rs, part, callback) => {
+  if (cloud) {
     const ep = 'download/torrent'
     const url = `${address}/c/v1/stations/${stationID}/pipe`
     const resource = Buffer.from(`/${ep}`).toString('base64')
@@ -448,15 +522,15 @@ export const uploadTorrent = (dirUUID, rs, part, callback) => {
   }
 }
 
-export const uploadTorrentAsync = Promise.promisify(uploadTorrent)
+const uploadTorrentAsync = Promise.promisify(uploadTorrent)
 
-export const boxUpload = (files, args, callback) => {
+const boxUploadCloud = (files, args, callback) => {
   const { comment, type, box } = args
   const boxUUID = box.uuid
   const { stationId, wxToken } = box
   const list = files.map(f => ({ filename: f.filename, size: f.size, sha256: f.sha256 }))
   const ep = `boxes/${boxUUID}/tweets`
-  const url = `${cloudAddress}/c/v1/stations/${stationId}/pipe`
+  const url = `${cloudAddress}/c/v1/boxes/${boxUUID}/stations/${stationId}/pipe`
   const resource = Buffer.from(`/${ep}`).toString('base64')
   const { filename, size, sha256, entry } = files[0]
   const option = { type, list, comment, resource, method: 'POST' }
@@ -470,4 +544,52 @@ export const boxUpload = (files, args, callback) => {
   r.end(callback)
 }
 
-export const boxUploadAsync = Promise.promisify(boxUpload)
+const boxUploadLocal = (files, bToken, args, callback) => {
+  const { comment, type, box } = args
+  const boxUUID = box.uuid
+  const list = files.map(f => ({ filename: f.filename, size: f.size, sha256: f.sha256 }))
+  const url = `http://${address}:3000/boxes/${boxUUID}/tweets`
+  const r = request
+    .post(url)
+    .set('Authorization', `JWT ${bToken} ${token}`)
+    .field('list', JSON.stringify({ comment, type, list }))
+  for (let i = 0; i < files.length; i++) {
+    const { filename, size, sha256, entry } = files[i]
+    r.attach(filename, entry, JSON.stringify({ size, sha256 }))
+  }
+  r.end(callback)
+}
+
+const boxUploadAsync = async (files, args) => {
+  const { box } = args
+  const { stationId, guid } = box
+  let bToken = null
+  if (!cloud && stationID && stationID === stationId) {
+    try {
+      bToken = (await Promise.promisify(getBToken)(guid))
+    } catch (e) {
+      console.error('req bToken error', e)
+      bToken = null
+    }
+  }
+  let res = null
+  if (bToken) res = (await Promise.promisify(boxUploadLocal)(files, bToken, args)).body
+  else res = (await Promise.promisify(boxUploadCloud)(files, args)).body.data
+  return res
+}
+
+module.exports = {
+  clearTmpTrans,
+  isCloud,
+  serverGet,
+  serverGetAsync,
+  UploadMultipleFiles,
+  DownloadFile,
+  createFold,
+  createFoldAsync,
+  downloadReq,
+  downloadFile,
+  uploadTorrent,
+  uploadTorrentAsync,
+  boxUploadAsync
+}

@@ -1,32 +1,22 @@
 import React from 'react'
 import i18n from 'i18n'
-import { CircularProgress, Paper, Avatar, IconButton, RaisedButton, TextField } from 'material-ui'
-import ContentAdd from 'material-ui/svg-icons/content/add'
+import { CircularProgress, Avatar, IconButton, RaisedButton, TextField } from 'material-ui'
 import FileFolder from 'material-ui/svg-icons/file/folder'
 import CloseIcon from 'material-ui/svg-icons/navigation/close'
 import BackIcon from 'material-ui/svg-icons/navigation/arrow-back'
-import ForwardIcon from 'material-ui/svg-icons/navigation/arrow-forward'
-import UpIcon from 'material-ui/svg-icons/navigation/arrow-upward'
 import ModeEdit from 'material-ui/svg-icons/editor/mode-edit'
 import { AutoSizer } from 'react-virtualized'
 import { ShareIcon, ShareDisk } from '../common/Svg'
-import FlatButton from '../common/FlatButton'
 import FileContent from '../file/FileContent'
 import QuickNav from '../nav/QuickNav'
 import ListSelect from './ListSelect'
-import renderFileIcon from '../common/renderFileIcon'
-import { formatMtime } from '../common/datetime'
 import sortByType from '../common/sort'
 import { BreadCrumbItem, BreadCrumbSeparator } from '../common/BreadCrumb'
 import ScrollBar from '../common/ScrollBar'
 import Row from './Row'
 
-const curve = 'all 450ms cubic-bezier(0.23, 1, 0.32, 1) 0ms'
-
-const imgUrl = 'http://wx.qlogo.cn/mmopen/vi_32/Q0j4TwGTfTKQiahrEc8rUfECDTUq94WlcaNkTYTKzIKr3p5xgOPQO1juvtwO1YSUCHOPpup3oWo1AP3nOBVyPCw/132'
-
 class SelectNas extends React.Component {
-  constructor(props) {
+  constructor (props) {
     super(props)
 
     this.select = new ListSelect(this)
@@ -64,8 +54,8 @@ class SelectNas extends React.Component {
     }
 
     this.listNavBySelect = (entry) => {
-      if (!window.navigator.onLine) return this.props.openSnackBar(i18n.__('Offline Text'))
-      this.enter(entry)
+      if (!window.navigator.onLine) this.props.openSnackBar(i18n.__('Offline Text'))
+      else this.enter(entry)
     }
 
     this.fire = () => {
@@ -74,7 +64,10 @@ class SelectNas extends React.Component {
         type: 'list',
         boxUUID: this.props.boxUUID,
         stationId: this.props.stationId,
-        list: [...this.selected].map(([k, v]) => ({ type: 'file', filename: v.name, driveUUID: v.driveUUID, dirUUID: v.dirUUID }))
+        isMedia: [...this.selected].every(([k, v]) => !!v.metadata),
+        list: [...this.selected].map(([k, v]) => ({
+          type: 'file', filename: v.name, driveUUID: v.driveUUID, dirUUID: v.dirUUID, nasMedia: !!v.metadata, sha256: v.hash
+        }))
       }
       this.props.onRequestClose()
       this.props.createNasTweets(args)
@@ -100,13 +93,13 @@ class SelectNas extends React.Component {
             path[0].uuid = dirUUID
             this.updateState(path, currentDir, list)
           })
-          .catch(err => console.log(err))
+          .catch(err => console.error(err))
       } else if (node.type === 'directory') { // normal directory in drives
         this.list(driveUUID, dirUUID)
           .then((list) => {
             this.updateState(path, currentDir, list)
           })
-          .catch(err => console.log(err))
+          .catch(err => console.error(err))
       } else if (node.type === 'publicRoot') { // list public drives
         const myUUID = this.props.apis.account.data && this.props.apis.account.data.uuid
         const list = this.props.apis.drives.value().filter(d => d.type === 'public' && d.tag !== 'built-in' &&
@@ -120,7 +113,7 @@ class SelectNas extends React.Component {
             path[0].uuid = builtIn.uuid
             this.updateState(path, currentDir, list)
           })
-          .catch(err => console.log(err))
+          .catch(err => console.error(err))
       }
     }
 
@@ -142,7 +135,7 @@ class SelectNas extends React.Component {
       if (currentDir.type === 'directory' || currentDir.type === 'public' || currentDir.tag === 'built-in' || currentDir.tag === 'home' || currentDir.type === 'share') { // normal directory
         this.list(driveUUID, dirUUID)
           .then(list => this.updateState(path, currentDir, list))
-          .catch(err => console.log(err))
+          .catch(err => console.error(err))
       } else if (currentDir.type === 'root') { // root
         const drives = this.props.apis.drives.value()
         const list = [
@@ -163,7 +156,7 @@ class SelectNas extends React.Component {
       this.setState({ nav })
       const d = this.props.apis.drives
       const drive = d && d.data && d.data.find(dr => dr.tag === 'home')
-      if (!drive) return console.log('no drive error')
+      if (!drive) return console.error('no drive error')
       switch (nav) {
         case 'home':
           if (drive) this.enter(Object.assign({ setRoot: true }, drive))
@@ -177,6 +170,7 @@ class SelectNas extends React.Component {
         default:
           break
       }
+      return null
     }
 
     /* get file list */
@@ -198,13 +192,13 @@ class SelectNas extends React.Component {
     }
   }
 
-  componentDidMount() {
+  componentDidMount () {
     const d = this.props.apis.drives
     const drive = d && d.data && d.data.find(dr => dr.tag === 'home')
     if (drive) this.enter(Object.assign({ setRoot: true }, drive))
   }
 
-  renderLoading(size) {
+  renderLoading (size) {
     return (
       <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }} >
         <CircularProgress size={size || 64} />
@@ -212,7 +206,7 @@ class SelectNas extends React.Component {
     )
   }
 
-  renderBreadCrumb(navs) {
+  renderBreadCrumb (navs) {
     const path = this.state.path
 
     const touchTap = node => this.enter(node, path.slice(0, path.indexOf(node) + 1))
@@ -248,7 +242,7 @@ class SelectNas extends React.Component {
     )
   }
 
-  render() {
+  render () {
     // console.log('SelectNas', this.props, this.state, this.selected)
 
     const { currentUser, primaryColor, onRequestClose, ipcRenderer } = this.props
@@ -296,6 +290,11 @@ class SelectNas extends React.Component {
               <CloseIcon color="rgba(0,0,0,0.54)" />
             </IconButton>
           </div>
+          <div style={{ width: 12 }} />
+          <div style={{ color: 'rgba(0,0,0,.54)', fontSize: 20, fontWeight: 500 }} >
+            { i18n.__('%s File Selected', [...this.selected].length) }
+          </div>
+          <div style={{ flexGrow: 1 }} />
         </div>
         {/* content */}
         <div style={{ width: '100%', height: 'calc(100% - 64px)', display: 'flex', position: 'relative', marginTop: 8 }}>
@@ -322,6 +321,7 @@ class SelectNas extends React.Component {
             <div style={{ width: '100%', height: 'calc(100% - 64px)', position: 'absolute', top: 48, left: 0 }}>
               <FileContent
                 {...this.state}
+                resetScrollTo={() => {}}
                 fileSelect
                 listNavBySelect={this.listNavBySelect}
                 showContextMenu={() => {}}
@@ -333,7 +333,6 @@ class SelectNas extends React.Component {
                 toggleDialog={() => {}}
                 showTakenTime={!!this.state.takenTime}
                 apis={this.props.apis}
-                refresh={this.refresh}
                 rowDragStart={() => {}}
                 gridDragStart={() => {}}
                 setScrollTop={() => {}}
@@ -377,7 +376,6 @@ class SelectNas extends React.Component {
               <ModeEdit color="rgba(0,0,0,.54)" style={{ marginLeft: 16 }} />
             </div>
 
-
             {/* file list title */}
             <div
               style={{
@@ -404,7 +402,6 @@ class SelectNas extends React.Component {
               <AutoSizer>
                 {({ height, width }) => (
                   <ScrollBar
-                    style={{ outline: 'none' }}
                     allHeight={[...this.selected].length * 40}
                     height={height}
                     width={width}

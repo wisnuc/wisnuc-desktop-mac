@@ -2,7 +2,7 @@ const EventEmitter = require('events')
 const debug = require('debug')('transform')
 
 class Transform extends EventEmitter {
-  constructor(options) {
+  constructor (options) {
     if (Array.isArray(options)) {
       debug('get array')
       return options.reduce((pipe, opts) => (pipe
@@ -22,18 +22,18 @@ class Transform extends EventEmitter {
     this.outs = []
   }
 
-  unshift(x) {
+  unshift (x) {
     this.pending.unshift(x)
     this.schedule()
   }
 
-  push(x) {
+  push (x) {
     // debug('push', x)
     this.pending.push(x)
     this.schedule()
   }
 
-  pull() {
+  pull () {
     const xs = this.finished
     this.finished = []
     this.schedule()
@@ -41,38 +41,38 @@ class Transform extends EventEmitter {
   }
 
   // for inputs, isBlocked means I won't process new jobs.
-  isBlocked() {
-    return !!this.failed.length ||        // blocked by failed
-      !!this.finished.length ||           // blocked by output buffer (lazy)
-      this.outs.some(t => t.isBlocked())  // blocked by outputs transform
+  isBlocked () {
+    return !!this.failed.length || // blocked by failed
+      !!this.finished.length || // blocked by output buffer (lazy)
+      this.outs.some(t => t.isBlocked()) // blocked by outputs transform
   }
 
-  isStopped() {
+  isStopped () {
     return !this.working.length && this.outs.every(t => t.isStopped())
   }
 
-  isSelfStopped() {
+  isSelfStopped () {
     return !this.working.length
   }
 
-  isFinished() {
+  isFinished () {
     return !this.pending.length &&
       !this.working.length &&
       !this.finished.length &&
       !this.failed.length
   }
 
-  root() {
+  root () {
     return this.ins.length === 0 ? this : this.ins[0].root()
   }
 
-  pipe(next) {
+  pipe (next) {
     this.outs.push(next)
     next.ins.push(this)
     return next
   }
 
-  print() {
+  print () {
     debug(
       this.name,
       this.pending.map(x => x.name || x),
@@ -84,7 +84,7 @@ class Transform extends EventEmitter {
     this.outs.forEach(t => t.print())
   }
 
-  clear() {
+  clear () {
     this.pending.length = 0
     this.working.length = 0
     this.finished.length = 0
@@ -92,7 +92,7 @@ class Transform extends EventEmitter {
     this.outs.forEach(t => t.clear())
   }
 
-  schedule() {
+  schedule () {
     if (this.isBlocked()) return
 
     this.pending = this.ins.reduce((acc, t) => [...acc, ...t.pull()], this.pending)
@@ -105,7 +105,7 @@ class Transform extends EventEmitter {
         this.transform(x, (err, y) => {
           const index = this.working.indexOf(x)
           const curr = index > -1 ? this.working.splice(index, 1) : null
-          if (!curr) return debug('there is no this x', x)// error ? FIXME
+          if (!curr) return
           if (err) {
             if (Array.isArray(x)) x.forEach(c => (c.error = err))
             else x.error = err
@@ -130,7 +130,7 @@ class Transform extends EventEmitter {
 
         t.on('data', (data) => {
           if (this.outs.length) {
-            this.outs.forEach(t => t.push(data))
+            this.outs.forEach(out => out.push(data))
           } else if (this.root().listenerCount('data')) {
             this.root().emit('data', data)
           } else {

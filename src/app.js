@@ -24,7 +24,7 @@ i18n.configure({
 injectTapEventPlugin()
 
 /* render method */
-const render = () => ReactDom.render(<Fruitmix />, document.getElementById('app'))
+const render = () => ReactDom.render(React.createElement(Fruitmix), document.getElementById('app'))
 
 /* start mdns scan */
 global.mdnsStore = []
@@ -37,7 +37,7 @@ window.addEventListener('drop', e => e.preventDefault(), true)
 
 /* render after config loaded */
 ipcRenderer.on('CONFIG_UPDATE', (event, config) => {
-  // console.log('CONFIG_UPDATE', config)
+  console.log('CONFIG_UPDATE', config)
   global.config = config
   if (config.global && config.global.locales) i18n.setLocale(config.global.locales)
   else i18n.setLocale(/zh/.test(lang) ? 'zh-CN' : 'en-US')

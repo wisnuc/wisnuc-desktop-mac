@@ -1,16 +1,11 @@
 import React from 'react'
 import i18n from 'i18n'
-import { shell, clipboard } from 'electron'
-import { IconButton, CircularProgress, RaisedButton, TextField } from 'material-ui'
+import { clipboard } from 'electron'
+import { IconButton } from 'material-ui'
 import ErrorIcon from 'material-ui/svg-icons/alert/error-outline'
-import DoneIcon from 'material-ui/svg-icons/action/done'
 import CloseIcon from 'material-ui/svg-icons/navigation/close'
-import BackIcon from 'material-ui/svg-icons/navigation/arrow-back'
 import EditorInsertDriveFile from 'material-ui/svg-icons/editor/insert-drive-file'
-import FileCreateNewFolder from 'material-ui/svg-icons/file/create-new-folder'
 import FileFolder from 'material-ui/svg-icons/file/folder'
-import ArrowRight from 'material-ui/svg-icons/hardware/keyboard-arrow-right'
-import sanitize from 'sanitize-filename'
 import JSONTree from 'react-json-tree'
 import FlatButton from '../common/FlatButton'
 
@@ -62,7 +57,7 @@ const translateStatus = (statusCode) => {
 }
 
 class ErrorTree extends React.PureComponent {
-  constructor(props) {
+  constructor (props) {
     super(props)
     this.state = {
       expand: false
@@ -85,7 +80,7 @@ class ErrorTree extends React.PureComponent {
     }
   }
 
-  renderRow(node, key) {
+  renderRow (node, key) {
     const code = node.error.code ||
       (node.error.response && node.error.response[0] && node.error.response[0].error && node.error.response[0].error.code) ||
       (node.error.response && node.error.response.error && node.error.response.error.code)
@@ -102,8 +97,8 @@ class ErrorTree extends React.PureComponent {
         <div style={{ margin: '-2px 4px 0 4px', display: 'flex' }}>
           {
             node.type === 'directory' ? <FileFolder style={svgStyle} />
-            : node.type === 'file' ? <EditorInsertDriveFile style={svgStyle} />
-            : <ErrorIcon style={svgStyle} />
+              : node.type === 'file' ? <EditorInsertDriveFile style={svgStyle} />
+                : <ErrorIcon style={svgStyle} />
           }
         </div>
         <div style={{ width: 540, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginRight: 5, fontSize: 13 }} >
@@ -116,7 +111,7 @@ class ErrorTree extends React.PureComponent {
     )
   }
 
-  renderSource(errors) {
+  renderSource (errors) {
     const theme = {
       scheme: 'wisnuc',
       author: 'lxw',
@@ -152,7 +147,7 @@ class ErrorTree extends React.PureComponent {
     )
   }
 
-  render() {
+  render () {
     const { expand } = this.state
     return (
       <div

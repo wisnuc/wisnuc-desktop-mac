@@ -1,24 +1,13 @@
 import React from 'react'
 import i18n from 'i18n'
 import Debug from 'debug'
-import { IconButton, Checkbox, RaisedButton, TextField, RadioButtonGroup, RadioButton } from 'material-ui'
-import DoneIcon from 'material-ui/svg-icons/action/done'
-import CloseIcon from 'material-ui/svg-icons/navigation/close'
-import BackIcon from 'material-ui/svg-icons/navigation/arrow-back'
-import EditorInsertDriveFile from 'material-ui/svg-icons/editor/insert-drive-file'
-import FileCreateNewFolder from 'material-ui/svg-icons/file/create-new-folder'
-import FileFolder from 'material-ui/svg-icons/file/folder'
-import ArrowRight from 'material-ui/svg-icons/hardware/keyboard-arrow-right'
-import Promise from 'bluebird'
-import request from 'superagent'
-import sanitize from 'sanitize-filename'
+import { Checkbox, RadioButtonGroup, RadioButton } from 'material-ui'
 import FlatButton from '../common/FlatButton'
-import { ShareDisk } from '../common/Svg'
 
 const debug = Debug('component:file:Policy: ')
 
 class PolicyDialog extends React.PureComponent {
-  constructor(props) {
+  constructor (props) {
     super(props)
 
     this.state = {
@@ -69,7 +58,7 @@ class PolicyDialog extends React.PureComponent {
     }
   }
 
-  renderChoice() {
+  renderChoice () {
     const { name, entryType, remote } = this.props.data.conflicts[this.state.current]
     debug('renderChoice', entryType, remote.type, this.props.data)
     const type = entryType === 'directory' ? i18n.__('Directory') : i18n.__('File')
@@ -89,7 +78,7 @@ class PolicyDialog extends React.PureComponent {
       choices.splice(
         0, 2,
         { value: 'merge', label: i18n.__('Merge Text {{action}}', { action }) },
-        { value: 'overwrite', label: i18n.__('Overwrite Text {{action}}', { action }) },
+        { value: 'overwrite', label: i18n.__('Overwrite Text {{action}}', { action }) }
       )
     }
 
@@ -132,7 +121,7 @@ class PolicyDialog extends React.PureComponent {
     )
   }
 
-  render() {
+  render () {
     debug('PolicyDialog', this.props, this.state)
     const c = this.props.data.conflicts
     const leftCount = c.filter((conflict, index) => index > this.state.current && conflict.type === c[this.state.current].type).length

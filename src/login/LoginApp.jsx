@@ -1,5 +1,4 @@
 import React from 'react'
-import Debug from 'debug'
 import RightIcon from 'material-ui/svg-icons/hardware/keyboard-arrow-right'
 import i18n from 'i18n'
 import LocalLogin from './LocalLogin'
@@ -7,11 +6,10 @@ import WechatLogin from './WechatLogin'
 import FlatButton from '../common/FlatButton'
 import { WISNUC } from '../common/Svg'
 
-const debug = Debug('component:Login')
 const duration = 300
 
 class LoginApp extends React.Component {
-  constructor(props) {
+  constructor (props) {
     super(props)
 
     this.state = { local: true, hello: true }
@@ -19,12 +17,12 @@ class LoginApp extends React.Component {
     this.toggleMode = () => { this.setState({ local: !this.state.local }) }
   }
 
-  componentDidMount() {
+  componentDidMount () {
     document.getElementById('start-bg').style.display = 'none'
     setTimeout(() => this.setState({ hello: false }), 300)
   }
 
-  render() {
+  render () {
     return (
       <div
         style={{

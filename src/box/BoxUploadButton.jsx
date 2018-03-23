@@ -1,12 +1,11 @@
 import React from 'react'
 import i18n from 'i18n'
-import { FloatingActionButton, RaisedButton, Popover, Menu, MenuItem } from 'material-ui'
+import { FloatingActionButton, Popover, Menu, MenuItem } from 'material-ui'
 import FileFileUpload from 'material-ui/svg-icons/file/file-upload'
-import { UploadFile, UploadFold } from '../common/Svg'
 import { FromPC, FromMedia, FromFiles } from '../common/Svg'
 
 class BoxUploadButton extends React.Component {
-  constructor(props) {
+  constructor (props) {
     super(props)
     this.state = { open: false }
 
@@ -20,9 +19,16 @@ class BoxUploadButton extends React.Component {
         this.setState({ open: false })
       }
     }
+
+    this.openPopover = (e) => {
+      e.preventDefault()
+      e.stopPropagation()
+      if (!window.navigator.onLine) this.props.openSnackBar(i18n.__('Offline Text'))
+      else this.setState({ open: true, anchorEl: e.currentTarget })
+    }
   }
 
-  render() {
+  render () {
     // console.log('BoxUploadButton.jsx', this.props)
     const { offline, diffStation } = this.props
     const noNas = offline || diffStation
@@ -31,10 +37,7 @@ class BoxUploadButton extends React.Component {
         <FloatingActionButton
           backgroundColor="#2196F3"
           zDepth={3}
-          onTouchTap={(e) => {
-            e.preventDefault()
-            this.setState({ open: true, anchorEl: e.currentTarget })
-          }}
+          onTouchTap={this.openPopover}
         >
           <FileFileUpload />
         </FloatingActionButton>

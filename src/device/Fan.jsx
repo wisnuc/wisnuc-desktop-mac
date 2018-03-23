@@ -8,14 +8,13 @@ import HardwareKeyboardArrowDown from 'material-ui/svg-icons/hardware/keyboard-a
 const debug = Debug('component:control:Fan')
 
 class Fan extends React.Component {
-  constructor(props) {
+  constructor (props) {
     super(props)
 
     this.state = {
       fanScale: '',
       fanSpeed: ''
     }
-
 
     this.setFanScale = (fanScale) => {
       this.props.request('setFanScale', { fanScale }, (err, res) => {
@@ -51,7 +50,11 @@ class Fan extends React.Component {
     }
   }
 
-  componentWillReceiveProps(nextProps) {
+  componentDidMount () {
+    this.autoRefresh = setInterval(() => this.props.refresh(), 1000)
+  }
+
+  componentWillReceiveProps (nextProps) {
     if (nextProps.fan && (nextProps.fan !== this.props.fan)) {
       this.setState({
         fanScale: nextProps.fan.fanScale,
@@ -60,15 +63,11 @@ class Fan extends React.Component {
     }
   }
 
-  componentDidMount() {
-    this.autoRefresh = setInterval(() => this.props.refresh(), 1000)
-  }
-
-  componentWillUnmount() {
+  componentWillUnmount () {
     clearInterval(this.autoRefresh)
   }
 
-  render() {
+  render () {
     // debug('fan, this.props', this.props, this.state)
     if (!this.props.fan) return <div />
     const { fanScale, fanSpeed } = this.props.fan
@@ -101,7 +100,16 @@ class Fan extends React.Component {
           <Paper style={{ padding: 0 }}>
             <div style={titleStyle}>{ i18n.__('Fan Scale') }</div>
             <div style={{ height: 48 }} />
-            <div style={{ width: 240, height: 144, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+            <div
+              style={{
+                width: 240,
+                height: 144,
+                display: 'flex',
+                alignItems: 'center',
+                flexDirection: 'column',
+                justifyContent: 'center'
+              }}
+            >
               <FlatButton
                 primary
                 onTouchTap={this.increment}

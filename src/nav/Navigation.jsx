@@ -1,7 +1,6 @@
 import React from 'react'
 import UUID from 'uuid'
 import i18n from 'i18n'
-import Debug from 'debug'
 import { ipcRenderer } from 'electron'
 
 import { Paper, IconButton, Snackbar } from 'material-ui'
@@ -11,7 +10,7 @@ import SocialNotifications from 'material-ui/svg-icons/social/notifications'
 import Fruitmix from '../common/fruitmix'
 import { TasksIcon } from '../common/Svg'
 import DialogOverlay from '../common/DialogOverlay'
-import { sharpCurve, sharpCurveDuration, sharpCurveDelay } from '../common/motion'
+import { sharpCurve } from '../common/motion'
 
 import Tasks from './Tasks'
 import Policy from './Policy'
@@ -45,10 +44,8 @@ import Download from '../view/Download'
 import FinishedList from '../view/FinishedList'
 import Plugin from '../view/Plugin'
 
-const debug = Debug('component:nav:Navigation')
-
 class NavViews extends React.Component {
-  constructor(props) {
+  constructor (props) {
     super(props)
 
     this.navBoundObj = {}
@@ -176,34 +173,43 @@ class NavViews extends React.Component {
     this.onMoveInDrawer = () => {
       clearTimeout(this.timer)
     }
+
+    this.init = () => {
+      this.navTo('group')
+      this.setState({ openDrawer: true })
+      this.timer = setTimeout(() => this.setState({ openDrawer: false }), 1500)
+      this.checkFirmWareAsync().catch(e => console.error('checkFirmWareAsync error', e))
+    }
   }
 
-  install(name, View) {
-    this.views[name] = new View(this)
-    this.views[name].on('updated', next => this.setState({ [name]: next }))
-    this.state.home = this.views[name].state
-  }
-
-  componentDidMount() {
-    this.navTo('group')
-    this.checkFirmWareAsync().catch(e => console.log('checkFirmWareAsync error', e))
-    this.setState({ openDrawer: true })
-    this.timer = setTimeout(() => this.setState({ openDrawer: false }), 1500)
+  componentDidMount () {
+    this.init()
     ipcRenderer.send('START_TRANSMISSION')
     ipcRenderer.on('snackbarMessage', (e, message) => this.openSnackBar(message.message))
     ipcRenderer.on('conflicts', (e, args) => this.setState({ conflicts: args }))
   }
 
-  componentWillUnmount() {
-    clearTimeout(this.timer)
-  }
-
-  componentDidUpdate() {
+  componentDidUpdate () {
     this.currentView().willReceiveProps(this.props)
   }
 
-  navTo(nav, target) {
-    debug('navTo', nav, target, this.state.nav)
+  componentWillUnmount () {
+    clearTimeout(this.timer)
+    ipcRenderer.removeAllListeners('snackbarMessage')
+    ipcRenderer.removeAllListeners('conflicts')
+  }
+
+  getDetailStatus () {
+    return this.state.showDetail
+  }
+
+  install (name, View) {
+    this.views[name] = new View(this)
+    this.views[name].on('updated', next => this.setState({ [name]: next }))
+    this.state.home = this.views[name].state
+  }
+
+  navTo (nav, target) {
     if (nav === this.state.nav) {
       this.setState({ openDrawer: false })
     } else {
@@ -214,7 +220,7 @@ class NavViews extends React.Component {
     }
   }
 
-  navToDrive(driveUUID, dirUUID) {
+  navToDrive (driveUUID, dirUUID) {
     const drives = this.props.apis.drives.data // no drives ?
     const drive = drives.find(d => d.uuid === driveUUID)
     if (drive.tag === 'home') this.navTo('home', { driveUUID, dirUUID })
@@ -223,38 +229,37 @@ class NavViews extends React.Component {
   }
 
   // not used, decorate onto navmap ? TODO
-  navBound(navname) {
-    return this.navBoundObj[navname]
-      || (this.navBoundObj[navname] = this.navTo.bind(this, navname))
+  navBound (navname) {
+    return this.navBoundObj[navname] ||
+      (this.navBoundObj[navname] = this.navTo.bind(this, navname))
   }
 
-  openDrawer(open) {
+  openDrawer (open) {
     this.setState({ openDrawer: open })
   }
 
-  toggleDetail() {
+  toggleDetail () {
     this.setState({ showDetail: !this.state.showDetail })
   }
 
-  getDetailStatus() {
-    return this.state.showDetail
-  }
-
-  openSnackBar(message, options) {
+  openSnackBar (message, options) {
     if (options && options.showTasks) this.setState({ showTasks: true, snackBar: message })
     else this.setState({ snackBar: message })
   }
 
-  currentView() {
+  currentView () {
     if (!this.state.nav) throw new Error('no nav')
     return this.views[this.state.nav]
   }
 
-  renderQuickNavs() {
+  appBarHeight () {
+    return this.currentView().prominent() ? 128 : 64
+  }
+
+  renderQuickNavs () {
     if (!this.state.nav) return null
 
     const color = this.currentView().primaryColor()
-    const group = this.views[this.state.nav].navGroup()
     const hasQuickNavs = this.currentView().hasQuickNav()
     const navGroupList = Object.keys(this.views).filter(key => this.views[key].navGroup() === this.views[this.state.nav].navGroup())
 
@@ -272,9 +277,8 @@ class NavViews extends React.Component {
     if (!account.isPending() && !account.isRejected() && account.value() && account.value().isAdmin) isAdmin = true
 
     /* is cloud ? */
-    let isCloud = false
-    const token = this.props.selectedDevice.token
-    if (token && token.data && token.data.stationID) isCloud = true
+    const mdev = this.props.selectedDevice.mdev
+    const isCloud = mdev && !!mdev.isCloud
 
     return (
       <div
@@ -291,18 +295,20 @@ class NavViews extends React.Component {
           hasQuickNavs && navGroupList.map((key) => {
             const noRender = <div key={`quicknav-${key}`} />
             if ((!ws215i || !isAdmin) && key === 'fanControl') return noRender
-            if (!isAdmin && (['firmwareUpdate', 'power', 'adminUsers', 'adminDrives'].includes(key))) return noRender
-            if (isCloud && ['device', 'networking', 'timeDate', 'fanControl', 'power', 'plugin', 'firmwareUpdate'].includes(key)) return noRender
-            if (key === 'transmission' || key === 'transmission2') return (
-              <TransNav
-                key={`quicknav-${key}`}
-                icon={this.views[key].quickIcon()}
-                text={this.views[key].quickName()}
-                color={color}
-                selected={key === this.state.nav}
-                onTouchTap={this.navBound(key)}
-              />
-            )
+            if (!isAdmin && (['firmwareUpdate', 'power', 'adminUsers', 'adminDrives', 'plugin'].includes(key))) return noRender
+            if (isCloud && ['device', 'networking', 'timeDate', 'fanControl', 'power', 'firmwareUpdate'].includes(key)) return noRender
+            if (key === 'transmission' || key === 'transmission2') {
+              return (
+                <TransNav
+                  key={`quicknav-${key}`}
+                  icon={this.views[key].quickIcon()}
+                  text={this.views[key].quickName()}
+                  color={color}
+                  selected={key === this.state.nav}
+                  onTouchTap={this.navBound(key)}
+                />
+              )
+            }
             return (
               <QuickNav
                 key={`quicknav-${key}`}
@@ -317,11 +323,7 @@ class NavViews extends React.Component {
     )
   }
 
-  appBarHeight() {
-    return this.currentView().prominent() ? 128 : 64
-  }
-
-  renderDetailButton() {
+  renderDetailButton () {
     const view = this.currentView()
     if (!view.hasDetail()) return null
     let DetailIcon = ActionInfo
@@ -363,7 +365,7 @@ class NavViews extends React.Component {
     )
   }
 
-  renderDialogButton({ type, Icon, tooltip, num }) {
+  renderDialogButton ({ type, Icon, tooltip, num }) {
     const view = this.currentView()
     return (
       <div style={{ width: 48, height: 48, position: 'relative' }} >
@@ -388,55 +390,59 @@ class NavViews extends React.Component {
           />
         </IconButton>
         {
-          num < 100 ?
-            <div
-              style={{
-                position: 'absolute',
-                right: 8,
-                top: 8,
-                width: 16,
-                height: 16,
-                borderRadius: 8,
-                backgroundColor: '#F44336',
-                fontSize: 10,
-                fontWeight: 500,
-                color: '#FFF',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                opacity: num ? 1 : 0,
-                transition: 'all 225ms'
-              }}
-            >
-              { num }
-            </div>
-            : num > 99 ?
-            <div
-              style={{
-                position: 'absolute',
-                right: 0,
-                top: 9,
-                width: 24,
-                height: 16,
-                borderRadius: 8,
-                backgroundColor: '#F44336',
-                fontSize: 10,
-                fontWeight: 500,
-                color: '#FFF',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}
-            >
+          num < 100
+            ? (
+              <div
+                style={{
+                  position: 'absolute',
+                  right: 8,
+                  top: 8,
+                  width: 16,
+                  height: 16,
+                  borderRadius: 8,
+                  backgroundColor: '#F44336',
+                  fontSize: 10,
+                  fontWeight: 500,
+                  color: '#FFF',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  opacity: num ? 1 : 0,
+                  transition: 'all 225ms'
+                }}
+              >
+                { num }
+              </div>
+            )
+            : num > 99
+              ? (
+                <div
+                  style={{
+                    position: 'absolute',
+                    right: 0,
+                    top: 9,
+                    width: 24,
+                    height: 16,
+                    borderRadius: 8,
+                    backgroundColor: '#F44336',
+                    fontSize: 10,
+                    fontWeight: 500,
+                    color: '#FFF',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                >
               99+
-            </div>
-            : <div />
+                </div>
+              )
+              : <div />
         }
       </div>
     )
   }
 
-  renderAppBar() {
+  renderAppBar () {
     const view = this.currentView()
     let backgroundColor
     switch (view.appBarStyle()) {
@@ -534,11 +540,11 @@ class NavViews extends React.Component {
     )
   }
 
-  renderAppBarShadow() {
+  renderAppBarShadow () {
     return <div style={{ width: '100%', height: this.appBarHeight(), transition: 'height 300ms' }} />
   }
 
-  renderDetail() {
+  renderDetail () {
     const view = this.currentView()
 
     if (!view.hasDetail() || !view.detailEnabled()) return null
@@ -554,8 +560,7 @@ class NavViews extends React.Component {
     return view.renderDetail({ style, openSnackBar: this.openSnackBarBound })
   }
 
-  renderSnackBar() {
-    // debug('renderSnackBar', this.state.snackBar)
+  renderSnackBar () {
     return (
       <Snackbar
         open={!!this.state.snackBar}
@@ -566,15 +571,14 @@ class NavViews extends React.Component {
     )
   }
 
-  render() {
+  render () {
     if (!this.state.nav) return null
 
     const view = this.views[this.state.nav]
 
     /* is cloud ? */
-    let isCloud = false
-    const token = this.props.selectedDevice.token
-    if (token && token.data && token.data.stationID) isCloud = true
+    const mdev = this.props.selectedDevice.mdev
+    const isCloud = mdev && !!mdev.isCloud
 
     return (
       <div
@@ -630,7 +634,7 @@ class NavViews extends React.Component {
           onRequestChange={this.openDrawerBound}
           views={this.views}
           nav={this.state.nav}
-          navTo={this.navTo.bind(this)}
+          navTo={this.navToBound}
           navToMain={this.props.nav}
           isCloud={isCloud}
         />
@@ -689,27 +693,26 @@ class NavViews extends React.Component {
   event routing.
 */
 class Navigation extends React.Component {
-  constructor(props) {
+  constructor (props) {
     super(props)
 
     /* init apis */
     const token = props.selectedDevice.token
     if (!token.isFulfilled()) throw new Error('token not fulfilled')
 
-    const address = props.selectedDevice.mdev.address
+    const { address, isCloud } = props.selectedDevice.mdev
     const userUUID = token.ctx.uuid
-    // debug('init Fruitmix', address, userUUID, token.data.token, token.data.stationID)
-    this.fruitmix = new Fruitmix(address, userUUID, token.data.token, token.data.stationID)
+    this.fruitmix = new Fruitmix(address, userUUID, token.data.token, isCloud, token.data.stationID)
     this.fruitmix.on('updated', (prev, next) => this.setState({ apis: next }))
 
     this.state = { apis: null }
   }
 
-  componentDidMount() {
+  componentDidMount () {
     this.fruitmix.start()
   }
 
-  render() {
+  render () {
     return <NavViews apis={this.state.apis} {...this.props} />
   }
 }

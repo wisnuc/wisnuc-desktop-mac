@@ -1,17 +1,17 @@
-import fs from 'original-fs'
-import i18n from 'i18n'
-import path from 'path'
-import UUID from 'uuid'
-import sanitize from 'sanitize-filename'
-import { dialog, ipcMain } from 'electron'
-import { getMainWindow } from './window'
-import { serverGetAsync, isCloud } from './server'
-import { createTask } from './uploadTransform'
+const i18n = require('i18n')
+const path = require('path')
+const UUID = require('uuid')
+const Promise = require('bluebird')
+const sanitize = require('sanitize-filename')
+const { dialog, ipcMain } = require('electron')
+const fs = Promise.promisifyAll(require('original-fs')) // eslint-disable-line
 
-Promise.promisifyAll(fs) // babel would transform Promise to bluebird
+const { getMainWindow } = require('./window')
+const { createTask } = require('./uploadTransform')
+const { serverGetAsync, isCloud } = require('./server')
 
 /*
-policy: { uuid, promise }
+  policy: { uuid, promise }
 */
 
 const Policies = []
@@ -184,9 +184,11 @@ const uploadMediaHandle = (event, args) => {
 
 const startTransmissionHandle = (event, args) => {
   global.DB.loadAll((error, tasks) => {
-    if (error) return console.log('load db store error', error)
-    tasks.forEach(t => t.state !== 'finished' && t.trsType === 'upload' &&
-      createTask(t.uuid, t.entries, t.dirUUID, t.driveUUID, t.taskType, t.createTime, false, t.policies, t))
+    if (error) console.error('load db store error', error)
+    else {
+      tasks.forEach(t => t.state !== 'finished' && t.trsType === 'upload' &&
+        createTask(t.uuid, t.entries, t.dirUUID, t.driveUUID, t.taskType, t.createTime, false, t.policies, t))
+    }
   })
 }
 

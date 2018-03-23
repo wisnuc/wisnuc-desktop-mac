@@ -1,9 +1,6 @@
 import React from 'react'
 import i18n from 'i18n'
-import { ipcRenderer } from 'electron'
 import { Paper } from 'material-ui'
-import ActionOpenInBrowser from 'material-ui/svg-icons/action/open-in-browser'
-import { grey500 } from 'material-ui/styles/colors'
 
 import Barcelona from './Barcelona'
 import Computer from './Computer'
@@ -26,7 +23,7 @@ class ModelNameCard extends React.Component {
 
   logoType = () => (this.props.ws215i ? Barcelona : Computer)
 
-  render() {
+  render () {
     const bcolor = this.props.toggle ? '#FAFAFA' : this.props.backgroundColor || '#3f51B5'
     const paperStyle = {
       // height: this.props.toggle ? '' : 404,

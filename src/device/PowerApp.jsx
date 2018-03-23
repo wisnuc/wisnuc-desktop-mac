@@ -12,7 +12,7 @@ import DialogOverlay from '../common/DialogOverlay'
 const debug = Debug('component:control:power:')
 
 class Power extends React.Component {
-  constructor(props) {
+  constructor (props) {
     super(props)
     this.address = this.props.selectedDevice.mdev.address
     this.host = this.props.selectedDevice.mdev.host
@@ -92,8 +92,8 @@ class Power extends React.Component {
             case 'REBOOT':
             case 'REBOOTMAINTENANCE':
               if (hasBeenShutDown) {
-                if (store.find(d => d.host === this.host)
-                || store.find(d => d.address === this.address)) {
+                if (store.find(d => d.host === this.host) ||
+                store.find(d => d.address === this.address)) {
                   clearInterval(this.interval)
                   debug('reboot success')
                   this.setState({ operation: 'done' })
@@ -102,13 +102,15 @@ class Power extends React.Component {
                 hasBeenShutDown = true
               }
               break
+            default:
+              break
           }
         }, 500)
       }, 1000)
     }
   }
 
-  renderActions() {
+  renderActions () {
     let operation = null
     switch (this.state.choice) {
       case 'POWEROFF':
@@ -120,6 +122,8 @@ class Power extends React.Component {
       case 'REBOOTMAINTENANCE':
         operation = { state: 'reboot', mode: 'maintenance' }
         break
+      default:
+        break
     }
 
     return (
@@ -130,7 +134,7 @@ class Power extends React.Component {
     )
   }
 
-  renderDiaContent() {
+  renderDiaContent () {
     /* confirm dialog */
     if (this.state.operation === 'confirm') {
       return (
@@ -138,9 +142,9 @@ class Power extends React.Component {
           {/* title */}
           <div style={{ fontSize: 16, color: 'rgba(0,0,0,0.54)' }}>
             {
-              this.state.choice === 'POWEROFF' ?
-                i18n.__('Confirm Shut Down Text') : this.state.choice === 'REBOOT' ?
-                i18n.__('Confirm Reboot Text') : i18n.__('Confirm Reboot to Maintenance Text')
+              this.state.choice === 'POWEROFF'
+                ? i18n.__('Confirm Shut Down Text') : this.state.choice === 'REBOOT'
+                  ? i18n.__('Confirm Reboot Text') : i18n.__('Confirm Reboot to Maintenance Text')
             }
           </div>
           <div style={{ height: 24 }} />
@@ -164,6 +168,8 @@ class Power extends React.Component {
           break
         case 'REBOOTMAINTENANCE':
           hintText = i18n.__('Rebooting To Maintenance')
+          break
+        default:
           break
       }
       return (
@@ -195,6 +201,8 @@ class Power extends React.Component {
           hintText = i18n.__('Reboot To Maintenance Finish Hint')
           linkText = i18n.__('Reboot To Maintenance Finish Link')
           break
+        default:
+          break
       }
 
       return (
@@ -215,7 +223,7 @@ class Power extends React.Component {
     return (<div />)
   }
 
-  render() {
+  render () {
     // debug('power', this.props)
     return (
       <div style={{ paddingLeft: 24, paddingTop: 32 }}>

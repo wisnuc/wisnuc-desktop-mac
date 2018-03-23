@@ -4,7 +4,7 @@ import { TextField } from 'material-ui'
 import FlatButton from '../common/FlatButton'
 
 class NewName extends React.PureComponent {
-  constructor(props) {
+  constructor (props) {
     super(props)
     this.state = {
       value: '',
@@ -22,12 +22,12 @@ class NewName extends React.PureComponent {
       const args = { name: this.state.value, boxUUID, stationId }
       apis.pureRequest('boxName', args, (err) => {
         if (err) {
-          console.log('Change Group Name Error', err)
+          console.error('Change Group Name Error', err)
           this.setState({ errorText: i18n.__('Change Group Name Failed'), loading: false })
         } else {
           onRequestClose()
           openSnackBar(i18n.__('Change Group Name Success'))
-          refresh()
+          refresh({ boxUUID })
         }
       })
     }
@@ -37,7 +37,7 @@ class NewName extends React.PureComponent {
     }
   }
 
-  render() {
+  render () {
     return (
       <div style={{ width: 320, padding: '24px 24px 0px 24px' }}>
         <div style={{ fontSize: 20, fontWeight: 500, color: 'rgba(0,0,0,0.87)' }}>

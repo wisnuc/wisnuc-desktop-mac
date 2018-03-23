@@ -1,7 +1,9 @@
+/* global AMap */
+
 import React from 'react'
 
 class Map extends React.Component {
-  constructor(props) {
+  constructor (props) {
     super(props)
 
     this.state = {
@@ -23,7 +25,6 @@ class Map extends React.Component {
       })
 
       const geocoderCallBack = (data) => {
-        console.log('address', data)
         /* Get address description */
         let address = this.props.unknownRegionText || 'Other Region'
         if (data && data.regeocode) {
@@ -45,7 +46,6 @@ class Map extends React.Component {
           extensions: 'all'
         })
         geocoder.getAddress(lnglatXY, (status, result) => {
-          console.log(status, result)
           if ((status === 'complete' && result.info === 'OK') || status === 'no_data') {
             geocoderCallBack(result)
           }
@@ -55,12 +55,13 @@ class Map extends React.Component {
           map,
           position: lnglatXY
         })
+        console.log(marker.getPosition())
       }
       regeocoder()
     }
   }
 
-  componentWillMount() {
+  componentWillMount () {
     setTimeout(() => {
       const script = document.createElement('script')
       script.src = 'http://webapi.amap.com/maps?v=1.3&key=db48eaf98740f0ea550863860b3aab81&plugin=AMap.Geocoder'
@@ -70,16 +71,15 @@ class Map extends React.Component {
     }, 500)
   }
 
-  shouldComponentUpdate(nextProps, nextState) {
+  shouldComponentUpdate (nextProps, nextState) {
     return (this.state !== nextState || nextProps.resultId !== this.props.resultId)
   }
 
-  componentDidUpdate() {
+  componentDidUpdate () {
     if (this.state.success) this.getMap()
   }
 
-  render() {
-    console.log('map render')
+  render () {
     const height = this.props.height || 360
     const width = this.props.height || 360
     return (

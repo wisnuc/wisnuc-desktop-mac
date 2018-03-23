@@ -1,6 +1,5 @@
 import React from 'react'
 import i18n from 'i18n'
-import Debug from 'debug'
 import UUID from 'uuid'
 import { CircularProgress, RaisedButton } from 'material-ui'
 import OpenIcon from 'material-ui/svg-icons/action/open-with'
@@ -10,10 +9,8 @@ import DialogOverlay from '../common/DialogOverlay'
 import FlatButton from '../common/FlatButton'
 import PhotoDetail from '../photo/PhotoDetail'
 
-const debug = Debug('component:file:preview: ')
-
 class Preview extends React.Component {
-  constructor(props) {
+  constructor (props) {
     super(props)
 
     this.state = {
@@ -27,10 +24,12 @@ class Preview extends React.Component {
       if (this.props.item.size > 50 * 1024 * 1024) this.setState({ alert: true })
       else {
         const driveUUID = this.props.path[0].uuid
+        const station = this.props.path[0].station // files from boxes
         const dirUUID = this.props.path[this.props.path.length - 1].uuid
         const entryUUID = this.props.item.uuid
         const fileName = this.props.item.name
         this.props.ipcRenderer.send('OPEN_FILE', {
+          station,
           driveUUID,
           dirUUID,
           entryUUID,
@@ -58,11 +57,13 @@ class Preview extends React.Component {
       this.session = UUID.v4()
       // debug('this.startDownload', this.state, this.props)
       const driveUUID = this.props.path[0].uuid
+      const station = this.props.path[0].station // files from boxes
       const dirUUID = this.props.path[this.props.path.length - 1].uuid
       const entryUUID = this.props.item.uuid
       const fileName = this.props.item.name
       this.props.ipcRenderer.send('TEMP_DOWNLOADING', {
         session: this.session,
+        station,
         driveUUID,
         dirUUID,
         entryUUID,
@@ -84,11 +85,13 @@ class Preview extends React.Component {
     this.getTextData = () => {
       this.session = UUID.v4()
       const driveUUID = this.props.path[0].uuid
+      const station = this.props.path[0].station // files from boxes
       const dirUUID = this.props.path[this.props.path.length - 1].uuid
       const entryUUID = this.props.item.uuid
       const fileName = this.props.item.name
       this.props.ipcRenderer.send('GET_TEXT_DATA', {
         session: this.session,
+        station,
         driveUUID,
         dirUUID,
         entryUUID,
@@ -127,11 +130,11 @@ class Preview extends React.Component {
     }
   }
 
-  componentDidMount() {
+  componentDidMount () {
     this.forceUpdate()
   }
 
-  componentDidUpdate() {
+  componentDidUpdate () {
     if (!this.refVideo || !this.props.parent) return
 
     if (this.props.parent.style.left === '0px' && this.refVideo.paused && !this.played) {
@@ -144,7 +147,7 @@ class Preview extends React.Component {
     }
   }
 
-  renderPhoto(hash, metadata) {
+  renderPhoto (hash, metadata) {
     const item = Object.assign({}, metadata, { hash })
     return (
       <PhotoDetail
@@ -155,13 +158,14 @@ class Preview extends React.Component {
     )
   }
 
-  renderText() {
+  renderText () {
     return (
       <div
         style={{ height: '80%', width: '80%', backgroundColor: '#FFFFFF' }}
         onTouchTap={(e) => { e.preventDefault(); e.stopPropagation() }}
       >
         <iframe
+          title="Text"
           seamless
           width="100%"
           height="100%"
@@ -172,7 +176,7 @@ class Preview extends React.Component {
     )
   }
 
-  renderRawText() {
+  renderRawText () {
     if (this.name === this.props.item.name && this.state.filePath) {
       return (
         <div
@@ -193,7 +197,7 @@ class Preview extends React.Component {
     return (<CircularProgress size={64} thickness={5} />)
   }
 
-  renderVideo() {
+  renderVideo () {
     return (
       <div
         style={{ height: '80%', width: '80%', backgroundColor: 'rgba(0,0,0,0)' }}
@@ -206,12 +210,14 @@ class Preview extends React.Component {
           ref={ref => (this.refVideo = ref)}
           controlsList="nodownload"
           src={this.state.filePath}
-        />
+        >
+          <track kind="captions" />
+        </video>
       </div>
     )
   }
 
-  renderKnownVideo() {
+  renderKnownVideo () {
     if (this.name === this.props.item.name && this.state.filePath) return this.renderVideo()
 
     if (!this.session) {
@@ -223,17 +229,18 @@ class Preview extends React.Component {
     return (<CircularProgress size={64} thickness={5} />)
   }
 
-  renderAudio() {
+  renderAudio () {
     return (
       <div onTouchTap={(e) => { e.preventDefault(); e.stopPropagation() }} >
         <audio width="100%" height="100%" controls >
           <source src={this.state.filePath} />
+          <track kind="captions" />
         </audio>
       </div>
     )
   }
 
-  renderOtherFiles() {
+  renderOtherFiles () {
     // debug('this.props renderOtherFiles', this.props)
     return (
       <div
@@ -272,7 +279,7 @@ class Preview extends React.Component {
     )
   }
 
-  renderPDF() {
+  renderPDF () {
     return (
       <div
         style={{ height: '80%', width: '80%', overflowY: 'auto', overflowX: 'hidden' }}
@@ -285,20 +292,18 @@ class Preview extends React.Component {
     )
   }
 
-  renderPreview() {
+  renderPreview () {
     const extension = this.props.item.name.replace(/^.*\./, '').toUpperCase()
-    const textExtension = ['TXT', 'MD', 'JS', 'JSX', 'TS', 'JSON', 'HTML', 'CSS', 'LESS', 'CSV', 'XML']
     const videoExtension = ['MP4', 'MOV', 'AVI', 'MKV']
     const audioExtension = ['MP3', 'APE', 'FLAC', 'WMA']
-    const isText = textExtension.findIndex(t => t === extension) > -1 && this.props.item.size < 1024 * 128
     const isVideo = videoExtension.findIndex(t => t === extension) > -1
     const isAudio = audioExtension.findIndex(t => t === extension) > -1
     const isPDF = extension === 'PDF'
 
-    if ((!isText && !isVideo && !isAudio && !isPDF) || this.props.item.size > 1024 * 1024 * 50) return this.renderOtherFiles()
+    if ((!isVideo && !isAudio && !isPDF) || this.props.item.size > 1024 * 1024 * 50) return this.renderOtherFiles()
 
     if (this.name === this.props.item.name && this.state.filePath) {
-      return isVideo ? this.renderVideo() : isPDF ? this.renderPDF() : isAudio ? this.renderAudio() : this.renderText()
+      return isVideo ? this.renderVideo() : isPDF ? this.renderPDF() : isAudio ? this.renderAudio() : <div />
     }
 
     // debug('before this.startDownload()', this.props.item.name, this.name, this.session)
@@ -312,20 +317,20 @@ class Preview extends React.Component {
     )
   }
 
-  render() {
+  render () {
     if (!this.props.item || !this.props.item.name) return (<div />)
 
     const { magic, metadata, hash } = this.props.item
     const photoMagic = ['JPEG', 'GIF', 'PNG']
     const videoMagic = ['3GP', 'MP4', 'MOV']
-    const isPhoto = metadata && photoMagic.includes(magic)
+    const isPhoto = metadata && (photoMagic.includes(magic) || photoMagic.includes(metadata.m))
     const isVideo = metadata && videoMagic.includes(magic)
 
     const extension = this.props.item.name.replace(/^.*\./, '').toUpperCase()
     const textExtension = ['TXT', 'MD', 'JS', 'JSX', 'TS', 'JSON', 'HTML', 'CSS', 'LESS', 'CSV', 'XML']
     const isText = textExtension.findIndex(t => t === extension) > -1 && this.props.item.size < 1024 * 128
 
-    // debug('isPhoto, isVideo', this.props.item, isPhoto, isVideo, isText)
+    // console.log('isPhoto, isVideo', this.props.item, isPhoto, isVideo, isText)
 
     return (
       <div
@@ -341,8 +346,8 @@ class Preview extends React.Component {
         {
           isPhoto ? this.renderPhoto(hash, metadata)
             : isVideo ? this.renderKnownVideo()
-            : isText ? this.renderRawText()
-            : this.renderPreview()
+              : isText ? this.renderRawText()
+                : this.renderPreview()
         }
         {/* dialog */}
         <DialogOverlay open={this.state.alert} >

@@ -1,6 +1,6 @@
-import React from 'react'
 import i18n from 'i18n'
-import Debug from 'debug'
+import React from 'react'
+import { TweenMax } from 'gsap'
 import { ipcRenderer } from 'electron'
 import { IconButton, Divider, CircularProgress, Avatar } from 'material-ui'
 import FileFolder from 'material-ui/svg-icons/file/folder'
@@ -35,10 +35,8 @@ import { UploadFile, UploadFold } from '../common/Svg'
 import renderFileIcon from '../common/renderFileIcon'
 import { xcopyMsg } from '../common/msg'
 
-const debug = Debug('component:viewModel:Home: ')
-
 class Home extends Base {
-  constructor(ctx) {
+  constructor (ctx) {
     super(ctx)
 
     this.type = 'home'
@@ -77,62 +75,68 @@ class Home extends Base {
     }
 
     this.toggleDialog = (type) => {
-      if (!window.navigator.onLine) return this.ctx.openSnackBar(i18n.__('Offline Text'))
-      this.setState({ [type]: !this.state[type] })
+      if (!window.navigator.onLine) this.ctx.openSnackBar(i18n.__('Offline Text'))
+      else this.setState({ [type]: !this.state[type] })
     }
 
     /* file or dir operations */
     this.upload = (type) => {
-      if (!window.navigator.onLine) return this.ctx.openSnackBar(i18n.__('Offline Text'))
-      const dirPath = this.state.path
-      const dirUUID = dirPath[dirPath.length - 1].uuid
-      const driveUUID = dirPath[0].uuid
-      console.log(dirPath, driveUUID, dirUUID, type)
-      ipcRenderer.send('UPLOAD', { dirUUID, driveUUID, type })
+      if (!window.navigator.onLine) this.ctx.openSnackBar(i18n.__('Offline Text'))
+      else {
+        const dirPath = this.state.path
+        const dirUUID = dirPath[dirPath.length - 1].uuid
+        const driveUUID = dirPath[0].uuid
+        ipcRenderer.send('UPLOAD', { dirUUID, driveUUID, type })
+      }
     }
 
     this.download = () => {
-      if (!window.navigator.onLine) return this.ctx.openSnackBar(i18n.__('Offline Text'))
-      const selected = this.state.select.selected
-      const entries = selected.map(index => this.state.entries[index])
-      const path = this.state.path
-      ipcRenderer.send('DOWNLOAD', { entries, dirUUID: path[path.length - 1].uuid, driveUUID: path[0].uuid })
+      if (!window.navigator.onLine) this.ctx.openSnackBar(i18n.__('Offline Text'))
+      else {
+        const selected = this.state.select.selected
+        const entries = selected.map(index => this.state.entries[index])
+        const path = this.state.path
+        ipcRenderer.send('DOWNLOAD', { entries, dirUUID: path[path.length - 1].uuid, driveUUID: path[0].uuid })
+      }
     }
 
     this.dupFile = () => {
-      if (!window.navigator.onLine) return this.ctx.openSnackBar(i18n.__('Offline Text'))
-      const entries = this.state.entries
-      const selected = this.state.select.selected
-      const path = this.state.path
-      const curr = path[path.length - 1]
-      const oldName = entries[selected[0]].name
-      const reg = /^.*\./
-      const extension = oldName.replace(reg, '')
-      const nameNoExt = oldName.match(reg) ? oldName.match(reg)[0] : oldName
-      let newName = oldName
-      for (let i = 0; entries.findIndex(e => e.name === newName) > -1; i++) {
-        const addText = i ? ` - ${i18n.__('Copy(noun)')} (${i})` : ` - ${i18n.__('Copy(noun)')}`
-        if (!extension || extension === oldName || nameNoExt === '.') {
-          newName = `${oldName}${addText}`
-        } else {
-          const pureName = oldName.match(/^.*\./)[0]
-          newName = `${pureName.slice(0, pureName.length - 1)}${addText}.${extension}`
+      if (!window.navigator.onLine) this.ctx.openSnackBar(i18n.__('Offline Text'))
+      else {
+        const entries = this.state.entries
+        const selected = this.state.select.selected
+        const path = this.state.path
+        const curr = path[path.length - 1]
+        const oldName = entries[selected[0]].name
+        const reg = /^.*\./
+        const extension = oldName.replace(reg, '')
+        const nameNoExt = oldName.match(reg) ? oldName.match(reg)[0] : oldName
+        let newName = oldName
+        const findSame = name => entries.findIndex(e => e.name === name) > -1
+        for (let i = 0; findSame(newName); i++) {
+          const addText = i ? ` - ${i18n.__('Copy(noun)')} (${i})` : ` - ${i18n.__('Copy(noun)')}`
+          if (!extension || extension === oldName || nameNoExt === '.') {
+            newName = `${oldName}${addText}`
+          } else {
+            const pureName = oldName.match(/^.*\./)[0]
+            newName = `${pureName.slice(0, pureName.length - 1)}${addText}.${extension}`
+          }
         }
-      }
-      const args = {
-        driveUUID: path[0].uuid,
-        dirUUID: curr.uuid,
-        entryUUID: entries[selected[0]].uuid,
-        newName,
-        oldName
-      }
-      this.ctx.props.apis.request('dupFile', args, (err, data) => {
-        if (err) this.ctx.openSnackBar(i18n.__('Dup File Failed'))
-        else {
-          this.refresh()
-          this.ctx.openSnackBar(i18n.__('Dup File Success'))
+        const args = {
+          driveUUID: path[0].uuid,
+          dirUUID: curr.uuid,
+          entryUUID: entries[selected[0]].uuid,
+          newName,
+          oldName
         }
-      })
+        this.ctx.props.apis.request('dupFile', args, (err, data) => {
+          if (err) this.ctx.openSnackBar(i18n.__('Dup File Failed'))
+          else {
+            this.refresh()
+            this.ctx.openSnackBar(i18n.__('Dup File Success'))
+          }
+        })
+      }
     }
 
     this.deleteAsync = async () => {
@@ -166,48 +170,57 @@ class Home extends Base {
     }
 
     this.delete = () => {
-      if (!window.navigator.onLine) return this.ctx.openSnackBar(i18n.__('Offline Text'))
-      this.setState({ deleteLoading: true })
-      this.deleteAsync().then(() => {
-        this.setState({ deleteLoading: false, delete: false })
-        this.ctx.openSnackBar(i18n.__('Delete Success'))
-      }).catch((e) => {
-        this.setState({ deleteLoading: false, delete: false })
-        console.log('delete error', e)
-        this.ctx.openSnackBar(i18n.__('Delete Failed'))
-      })
+      if (!window.navigator.onLine) this.ctx.openSnackBar(i18n.__('Offline Text'))
+      else {
+        this.setState({ deleteLoading: true })
+        this.deleteAsync().then(() => {
+          this.setState({ deleteLoading: false, delete: false })
+          this.ctx.openSnackBar(i18n.__('Delete Success'))
+        }).catch((e) => {
+          this.setState({ deleteLoading: false, delete: false })
+          console.log('delete error', e)
+          this.ctx.openSnackBar(i18n.__('Delete Failed'))
+        })
+      }
     }
 
     /* actions */
     this.listNavBySelect = () => {
-      if (!window.navigator.onLine) return this.ctx.openSnackBar(i18n.__('Offline Text'))
-      // debug('listNavBySelect', this.select, this.state)
-      const selected = this.select.state.selected
-      if (selected.length !== 1) return
+      if (!window.navigator.onLine) this.ctx.openSnackBar(i18n.__('Offline Text'))
+      else {
+        const selected = this.select.state.selected
+        if (selected.length !== 1) return
 
-      const entry = this.state.entries[selected[0]]
-      if (entry.type === 'directory') {
-        this.ctx.props.apis.request('listNavDir', {
-          driveUUID: this.state.path[0].uuid,
-          dirUUID: entry.uuid
-        })
+        /* reset jump action of files or drives */
+        this.resetScrollTo()
+
+        const entry = this.state.entries[selected[0]]
+        if (entry.type === 'directory') {
+          this.ctx.props.apis.request('listNavDir', {
+            driveUUID: this.state.path[0].uuid,
+            dirUUID: entry.uuid
+          })
+        }
       }
     }
 
     /* op: scrollTo file */
     this.refresh = (op) => {
-      if (!window.navigator.onLine) return this.ctx.openSnackBar(i18n.__('Offline Text'))
+      if (!window.navigator.onLine) this.ctx.openSnackBar(i18n.__('Offline Text'))
+      else {
+        const rUUID = this.state.path[0] && this.state.path[0].uuid
+        const dUUID = this.state.path[0] && this.state.path[this.state.path.length - 1].uuid
+        if (!rUUID || !dUUID) {
+          this.setState({ loading: true })
+          this.ctx.props.apis.request('drives') // drive root
+        } else {
+          this.ctx.props.apis.request('listNavDir', { driveUUID: rUUID, dirUUID: dUUID })
+        }
+        this.resetScrollTo()
 
-      const rUUID = this.state.path[0] && this.state.path[0].uuid
-      const dUUID = this.state.path[0] && this.state.path[this.state.path.length - 1].uuid
-      if (!rUUID || !dUUID) {
-        this.setState({ loading: true })
-        this.ctx.props.apis.request('drives') // drive root
-      } else this.ctx.props.apis.request('listNavDir', { driveUUID: rUUID, dirUUID: dUUID })
-
-      // debug('this.refresh op', op)
-      if (op) this.setState({ scrollTo: op.fileName, loading: !op.noloading })
-      else this.setState({ loading: true })
+        if (op) this.setState({ scrollTo: op.fileName || op.uuid, loading: !op.noloading }) // fileName for files, uuid for drives
+        else this.setState({ loading: true })
+      }
     }
 
     this.resetScrollTo = () => Object.assign(this.state, { scrollTo: null })
@@ -218,7 +231,7 @@ class Home extends Base {
       const maxLeft = containerDom.offsetLeft + containerDom.clientWidth - 240
       const x = clientX > maxLeft ? maxLeft : clientX
       /* calc positon of menu using height of menu which is related to number of selected items */
-      const length = this.select.state && this.select.state.selected && this.select.state.selected.length || 0
+      const length = (this.select.state && this.select.state.selected && this.select.state.selected.length) || 0
       const adjust = !length ? 128 : length > 1 ? 240 : 304
       const maxTop = containerDom.offsetTop + containerDom.offsetHeight - adjust
       const y = clientY > maxTop ? maxTop : clientY
@@ -265,19 +278,20 @@ class Home extends Base {
     /* finish post change dialog content to waiting/result */
     this.finish = (error, data) => {
       const type = i18n.__('Move')
-      if (error) return this.ctx.openSnackBar(type.concat(i18n.__('+Failed')), { showTasks: true })
-
-      this.getTaskState(data.uuid).asCallback((err, res) => {
-        if (err) {
-          this.ctx.openSnackBar(type.concat(i18n.__('+Failed')), { showTasks: true })
-        } else {
-          let text = 'Working'
-          if (res === 'Finished') text = xcopyMsg(this.xcopyData)
-          if (res === 'Conflict') text = i18n.__('Task Conflict Text')
-          this.refresh({ noloading: true })
-          this.ctx.openSnackBar(text, res !== 'Finished' ? { showTasks: true } : null)
-        }
-      })
+      if (error) this.ctx.openSnackBar(type.concat(i18n.__('+Failed')), { showTasks: true })
+      else {
+        this.getTaskState(data.uuid).asCallback((err, res) => {
+          if (err) {
+            this.ctx.openSnackBar(type.concat(i18n.__('+Failed')), { showTasks: true })
+          } else {
+            let text = 'Working'
+            if (res === 'Finished') text = xcopyMsg(this.xcopyData)
+            if (res === 'Conflict') text = i18n.__('Task Conflict Text')
+            this.refresh({ noloading: true })
+            this.ctx.openSnackBar(text, res !== 'Finished' ? { showTasks: true } : null)
+          }
+        })
+      }
     }
 
     this.shouldFire = () => {
@@ -453,7 +467,7 @@ class Home extends Base {
     })
   }
 
-  willReceiveProps(nextProps) {
+  willReceiveProps (nextProps) {
     this.preValue = this.state.listNavDir
     this.handleProps(nextProps.apis, ['listNavDir'])
 
@@ -472,7 +486,7 @@ class Home extends Base {
     })
   }
 
-  navEnter(target) {
+  navEnter (target) {
     this.isNavEnter = true
     const apis = this.ctx.props.apis
     if (!apis || !apis.drives || !apis.drives.data) return
@@ -483,7 +497,7 @@ class Home extends Base {
     } else this.refresh()
   }
 
-  navLeave() {
+  navLeave () {
     this.isNavEnter = false
     this.setState({
       contextMenuOpen: false,
@@ -499,37 +513,37 @@ class Home extends Base {
     })
   }
 
-  navGroup() {
+  navGroup () {
     return 'file'
   }
 
-  menuName() {
+  menuName () {
     return i18n.__('Home Menu Name')
   }
 
-  menuIcon() {
+  menuIcon () {
     return FileFolder
   }
 
-  appBarStyle() {
+  appBarStyle () {
     return 'colored'
   }
 
-  prominent() {
+  prominent () {
     return true
   }
 
-  hasDetail() {
+  hasDetail () {
     return true
   }
 
-  detailEnabled() {
+  detailEnabled () {
     return true
   }
 
   /* renderers */
-  renderDragItems() {
-    this.entry = this.RDSI > -1 && this.state.entries[this.RDSI] || {}
+  renderDragItems () {
+    this.entry = (this.RDSI > -1 && this.state.entries[this.RDSI]) || {}
     return (
       <div
         ref={ref => (this.refDragedItems = ref)}
@@ -557,10 +571,10 @@ class Home extends Base {
           <Avatar style={{ backgroundColor: 'white', width: 36, height: 36 }}>
             {
               this.entry.type === 'directory'
-              ? <FileFolder style={{ color: 'rgba(0,0,0,0.54)', width: 24, height: 24 }} />
-              : this.entry.type === 'file'
-              ? renderFileIcon(this.entry.name, this.entry.metadata, 24)
-              : <div />
+                ? <FileFolder style={{ color: 'rgba(0,0,0,0.54)', width: 24, height: 24 }} />
+                : this.entry.type === 'file'
+                  ? renderFileIcon(this.entry.name, this.entry.metadata, 24)
+                  : <div />
             }
           </Avatar>
         </div>
@@ -603,7 +617,7 @@ class Home extends Base {
     )
   }
 
-  renderNavigationMenu({ style, onTouchTap }) {
+  renderNavigationMenu ({ style, onTouchTap }) {
     const CustomStyle = Object.assign(style, { opacity: 1 })
     return (
       <div style={CustomStyle} ref={ref => (this.refNavigationMenu = ref)}>
@@ -614,7 +628,7 @@ class Home extends Base {
     )
   }
 
-  renderBreadCrumbItem({ style }) {
+  renderBreadCrumbItem ({ style }) {
     const path = this.state.path
 
     const touchTap = (node) => {
@@ -659,12 +673,12 @@ class Home extends Base {
     )
   }
 
-  renderTitle({ style }) {
+  renderTitle ({ style }) {
     if (!this.state.listNavDir) return (<div />)
     return this.renderBreadCrumbItem({ style })
   }
 
-  renderToolBar({ style }) {
+  renderToolBar ({ style }) {
     return (
       <div style={style}>
         <IconButton onTouchTap={() => this.refresh()} tooltip={i18n.__('Refresh')} >
@@ -683,13 +697,13 @@ class Home extends Base {
     )
   }
 
-  renderDetail({ style }) {
+  renderDetail ({ style }) {
     if (!this.state.entries) return (<div />)
     return (
       <div style={style}>
         {
-          this.state.entries.length ?
-            <FileDetail
+          this.state.entries.length
+            ? <FileDetail
               key={this.state.path.slice(-1)[0].uuid}
               detailIndex={this.select.state.selected}
               counter={this.state.counter}
@@ -697,14 +711,14 @@ class Home extends Base {
               path={this.state.path}
               ipcRenderer={ipcRenderer}
               primaryColor={this.groupPrimaryColor()}
-            /> :
-            <div style={{ height: 128, backgroundColor: this.groupPrimaryColor(), filter: 'brightness(0.9)' }} />
+            />
+            : <div style={{ height: 128, backgroundColor: this.groupPrimaryColor(), filter: 'brightness(0.9)' }} />
         }
       </div>
     )
   }
 
-  renderDialogs(openSnackBar, navTo) {
+  renderDialogs (openSnackBar, navTo) {
     return (
       <div style={{ width: '100%', height: '100%' }}>
         <DialogOverlay open={!!this.state.createNewFolder} onRequestClose={() => this.toggleDialog('createNewFolder')}>
@@ -815,8 +829,7 @@ class Home extends Base {
     )
   }
 
-  renderMenu(open, toggleDetail, getDetailStatus) {
-    // debug('renderMenu', open, this.state.contextMenuY, this.state.contextMenuX)
+  renderMenu (open, toggleDetail, getDetailStatus) {
     return (
       <ContextMenu
         open={open}
@@ -825,7 +838,8 @@ class Home extends Base {
         onRequestClose={this.hideContextMenu}
       >
         {
-            this.state.select && this.state.select.selected && !this.state.select.selected.length ?
+          this.state.select && this.state.select.selected && !this.state.select.selected.length
+            ? (
               <div>
                 <MenuItem
                   primaryText={i18n.__('Create New Folder')}
@@ -847,16 +861,17 @@ class Home extends Base {
                   onTouchTap={() => this.upload('file')}
                 />
               </div>
-              :
+            )
+            : (
               <div>
                 <div>
                   {
                     this.title() !== i18n.__('Share Title') &&
-                      <MenuItem
-                        leftIcon={<ShareIcon style={{ height: 20, width: 20, marginTop: 6 }} />}
-                        primaryText={i18n.__('Share to Public')}
-                        onTouchTap={() => this.toggleDialog('share')}
-                      />
+                    <MenuItem
+                      leftIcon={<ShareIcon style={{ height: 20, width: 20, marginTop: 6 }} />}
+                      primaryText={i18n.__('Share to Public')}
+                      onTouchTap={() => this.toggleDialog('share')}
+                    />
                   }
                   <MenuItem
                     leftIcon={<CopyIcon style={{ height: 20, width: 20, marginTop: 6 }} />}
@@ -871,11 +886,11 @@ class Home extends Base {
                 </div>
                 {
                   this.state.select && this.state.select.selected && this.state.select.selected.length === 1 &&
-                    <MenuItem
-                      leftIcon={<EditIcon style={{ height: 20, width: 20, marginTop: 6 }} />}
-                      primaryText={i18n.__('Rename')}
-                      onTouchTap={() => this.toggleDialog('rename')}
-                    />
+                  <MenuItem
+                    leftIcon={<EditIcon style={{ height: 20, width: 20, marginTop: 6 }} />}
+                    primaryText={i18n.__('Rename')}
+                    onTouchTap={() => this.toggleDialog('rename')}
+                  />
                 }
                 <div style={{ height: 8 }} />
                 <Divider />
@@ -908,13 +923,13 @@ class Home extends Base {
                   onTouchTap={() => this.toggleDialog('delete')}
                 />
               </div>
-          }
+            )
+        }
       </ContextMenu>
     )
   }
 
-  renderContent({ toggleDetail, openSnackBar, navTo, getDetailStatus }) {
-    // debug('renderContent', this.state, this.select.state)
+  renderContent ({ toggleDetail, openSnackBar, navTo, getDetailStatus }) {
     return (
       <div style={{ position: 'relative', width: '100%', height: '100%' }}>
 

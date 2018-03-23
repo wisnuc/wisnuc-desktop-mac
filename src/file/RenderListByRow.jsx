@@ -10,7 +10,8 @@ import FileFolder from 'material-ui/svg-icons/file/folder'
 import ArrowUpward from 'material-ui/svg-icons/navigation/arrow-upward'
 import ArrowDownward from 'material-ui/svg-icons/navigation/arrow-downward'
 import CheckIcon from 'material-ui/svg-icons/navigation/check'
-import { List, AutoSizer } from 'react-virtualized'
+import { AutoSizer } from 'react-virtualized'
+import ScrollBar from '../common/ScrollBar'
 import renderFileIcon from '../common/renderFileIcon'
 import { ShareDisk } from '../common/Svg'
 import FlatButton from '../common/FlatButton'
@@ -38,6 +39,8 @@ const renderLeading = (leading) => {
       backgroundColor = '#FF0000'
       opacity = 1
       break
+    default:
+      break
   }
 
   return <div style={{ flex: '0 0 4px', height, backgroundColor, opacity, zIndex: 1000 }} />
@@ -51,13 +54,13 @@ const renderCheck = check =>
       : null)
 
 class Row extends React.PureComponent {
-  render() {
+  render () {
     const {
       /* these are react-virtualized List props */
       index, // Index of row
-      isScrolling, // The List is currently being scrolled
-      isVisible, // This row is visible within the List (eg it is not an overscanned row)
-      parent, // Reference to the parent List (instance)
+      // isScrolling, // The List is currently being scrolled
+      // isVisible, // This row is visible within the List (eg it is not an overscanned row)
+      // parent, // Reference to the parent List (instance)
       style, // Style object to be applied to row (to position it);
       // This must be passed through to the rendered row element.
 
@@ -95,6 +98,7 @@ class Row extends React.PureComponent {
             boxSizing: 'border-box',
             border: onDropping ? `2px ${this.props.primaryColor} solid` : ''
           }}
+          role="presentation"
           onTouchTap={e => this.props.onRowTouchTap(e, index)}
           onMouseEnter={e => this.props.onRowMouseEnter(e, index)}
           onMouseLeave={e => this.props.onRowMouseLeave(e, index)}
@@ -113,19 +117,22 @@ class Row extends React.PureComponent {
             <Avatar style={{ backgroundColor: 'white' }} onMouseDown={e => e.stopPropagation() || this.props.rowDragStart(e, index)} >
               {
                 entry.type === 'directory'
-                ? <FileFolder style={{ color: 'rgba(0,0,0,0.54)', width: 24, height: 24 }} />
-                : entry.type === 'public'
-                ? <ShareDisk style={{ color: 'rgba(0,0,0,0.54)', width: 24, height: 24 }} />
-                : entry.type === 'file'
-                ? renderFileIcon(entry.name, entry.metadata, 24)
-                : <ErrorIcon style={{ color: 'rgba(0,0,0,0.54)', width: 24, height: 24 }} />
+                  ? <FileFolder style={{ color: 'rgba(0,0,0,0.54)', width: 24, height: 24 }} />
+                  : entry.type === 'public'
+                    ? <ShareDisk style={{ color: 'rgba(0,0,0,0.54)', width: 24, height: 24 }} />
+                    : entry.type === 'file'
+                      ? renderFileIcon(entry.name, entry.metadata, 24)
+                      : <ErrorIcon style={{ color: 'rgba(0,0,0,0.54)', width: 24, height: 24 }} />
               }
             </Avatar>
           </div>
 
           <div style={{ flex: inPublicRoot ? '0 1 168px' : '0 0 500px', display: 'flex' }} >
             <div
-              style={{ width: '', maxWidth: inPublicRoot ? 144 : 476, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}
+              style={{
+                width: '', maxWidth: inPublicRoot ? 144 : 476, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis'
+              }}
+              role="presentation"
               onMouseDown={e => e.stopPropagation() || this.props.rowDragStart(e, index)}
             >
               { entry.name }
@@ -134,12 +141,12 @@ class Row extends React.PureComponent {
           </div>
 
           <div style={{ flex: inPublicRoot ? '0 0 476px' : '0 1 144px', fontSize: 13, color: 'rgba(0,0,0,0.54)' }}>
-            { showTakenTime ? entry.metadata && (entry.metadata.date || entry.metadata.datetime)
-              && formatDate(entry.metadata.date || entry.metadata.datetime) : entry.mtime && formatMtime(entry.mtime) }
+            { showTakenTime ? entry.metadata && (entry.metadata.date || entry.metadata.datetime) &&
+              formatDate(entry.metadata.date || entry.metadata.datetime) : entry.mtime && formatMtime(entry.mtime) }
             {
               inPublicRoot && (entry.writelist === '*' ? i18n.__('All Users')
-              : entry.writelist.filter(uuid => users.find(u => u.uuid === uuid))
-                .map(uuid => users.find(u => u.uuid === uuid).username).join(', ')
+                : entry.writelist.filter(uuid => users.find(u => u.uuid === uuid))
+                  .map(uuid => users.find(u => u.uuid === uuid).username).join(', ')
               )
             }
           </div>
@@ -156,7 +163,7 @@ class Row extends React.PureComponent {
 }
 
 class RenderListByRow extends React.Component {
-  constructor(props) {
+  constructor (props) {
     super(props)
     this.state = {
       type: ''
@@ -203,7 +210,7 @@ class RenderListByRow extends React.Component {
     }
   }
 
-  componentDidUpdate() {
+  componentDidUpdate () {
     if (this.props.scrollTo) {
       const index = this.props.entries.findIndex(entry => entry.name === this.props.scrollTo)
       if (index > -1) {
@@ -214,7 +221,7 @@ class RenderListByRow extends React.Component {
     }
   }
 
-  renderHeader(h) {
+  renderHeader (h) {
     return (
       <div
         key={h.title}
@@ -247,7 +254,7 @@ class RenderListByRow extends React.Component {
     )
   }
 
-  renderPopoverHeader() {
+  renderPopoverHeader () {
     const headers = [
       { title: i18n.__('Date Modified'), up: 'timeUp', down: 'timeDown' },
       { title: i18n.__('Date Taken'), up: 'takenUp', down: 'takenDown' }
@@ -305,7 +312,7 @@ class RenderListByRow extends React.Component {
     )
   }
 
-  render() {
+  render () {
     // debug('RenderListByRow redner', this.props)
     const rowRenderer = props => (
       <Row
@@ -317,7 +324,7 @@ class RenderListByRow extends React.Component {
         onRowDoubleClick={this.props.onRowDoubleClick}
       />
     )
-    console.log('RenderListByRow.jsx', this.props)
+    // console.log('RenderListByRow.jsx', this.props)
 
     return (
       <div style={{ width: '100%', height: '100%' }} onDrop={this.props.drop}>
@@ -334,6 +341,7 @@ class RenderListByRow extends React.Component {
             paddingTop: 8,
             top: -8
           }}
+          role="presentation"
           onMouseUp={e => this.props.selectEnd(e)}
           onMouseMove={e => this.props.selectRow(e, this.getScrollToPosition())}
         >
@@ -361,6 +369,7 @@ class RenderListByRow extends React.Component {
             <AutoSizer>
               {({ height, width }) => (
                 <div
+                  role="presentation"
                   onMouseDown={e => this.props.selectStart(e)}
                   onMouseUp={e => this.props.selectEnd(e)}
                   onMouseMove={e => this.props.selectRow(e, this.getScrollToPosition())}
@@ -368,11 +377,11 @@ class RenderListByRow extends React.Component {
                   draggable={false}
                   onTouchTap={e => this.props.onRowTouchTap(e, -1)}
                 >
-                  <List
+                  <ScrollBar
                     ref={ref => (this.ListRef = ref)}
-                    style={{ outline: 'none' }}
                     height={height}
                     width={width}
+                    allHeight={this.props.entries.length * 48}
                     rowCount={this.props.entries.length}
                     onScroll={this.onScroll}
                     rowHeight={48}

@@ -1,14 +1,11 @@
 import React, { PureComponent } from 'react'
 import i18n from 'i18n'
-import Debug from 'debug'
 import { TextField, Checkbox, Divider } from 'material-ui'
 import sanitize from 'sanitize-filename'
 import FlatButton from '../common/FlatButton'
 
-const debug = Debug('component:control:NewDriveDialog')
-
 class NewDriveDialog extends PureComponent {
-  constructor(props) {
+  constructor (props) {
     super(props)
 
     this.state = {
@@ -40,7 +37,7 @@ class NewDriveDialog extends PureComponent {
     }
   }
 
-  updateLabel(value) {
+  updateLabel (value) {
     const drives = this.props.drives
     const newValue = sanitize(value)
     if (drives.findIndex(drive => drive.label === value) > -1) {
@@ -52,11 +49,11 @@ class NewDriveDialog extends PureComponent {
     }
   }
 
-  togglecheckAll() {
+  togglecheckAll () {
     this.setState({ writelist: this.state.writelist === '*' ? [] : '*' })
   }
 
-  handleCheck(userUUID) {
+  handleCheck (userUUID) {
     const wl = this.state.writelist
     const index = wl.indexOf(userUUID)
     if (wl === '*') this.setState({ writelist: [userUUID] })
@@ -64,7 +61,7 @@ class NewDriveDialog extends PureComponent {
     else this.setState({ writelist: [...wl.slice(0, index), ...wl.slice(index + 1)] })
   }
 
-  render() {
+  render () {
     const users = this.props.users
     return (
       <div style={{ width: 336, padding: '24px 24px 0px 24px', zIndex: 2000 }}>
@@ -116,8 +113,8 @@ class NewDriveDialog extends PureComponent {
         <Divider style={{ color: 'rgba(0, 0, 0, 0.54)' }} />
         <div style={{ maxHeight: 40 * 8, overflow: 'auto' }}>
           {
-            users.map(user =>
-              (<div style={{ width: '100%', height: 40, display: 'flex', alignItems: 'center' }} key={user.username} >
+            users.map(user => (
+              <div style={{ width: '100%', height: 40, display: 'flex', alignItems: 'center' }} key={user.username} >
                 <Checkbox
                   label={user.username}
                   iconStyle={{ fill: this.state.writelist === '*' || this.state.writelist.includes(user.uuid) ? this.props.primaryColor : 'rgba(0, 0, 0, 0.54)' }}
@@ -125,7 +122,8 @@ class NewDriveDialog extends PureComponent {
                   checked={this.state.writelist === '*' || this.state.writelist.includes(user.uuid)}
                   onCheck={() => this.handleCheck(user.uuid)}
                 />
-               </div>))
+              </div>
+            ))
           }
           <div style={{ height: 8 }} />
         </div>

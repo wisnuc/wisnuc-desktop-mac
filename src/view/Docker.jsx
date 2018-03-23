@@ -1,14 +1,11 @@
 import React from 'react'
 import i18n from 'i18n'
-import Debug from 'debug'
 import Base from './Base'
 import Market from '../docker/Market'
 import { DockerIcon } from '../common/Svg'
 
-const debug = Debug('view:component:Docker:')
-
 class Docker extends Base {
-  constructor(ctx) {
+  constructor (ctx) {
     super(ctx)
 
     this.state = {
@@ -16,7 +13,7 @@ class Docker extends Base {
     }
   }
 
-  willReceiveProps(nextProps) {
+  willReceiveProps (nextProps) {
     // console.log('media nextProps', nextProps)
     if (!nextProps.apis || !nextProps.apis.docker) return
     const docker = nextProps.apis.docker
@@ -29,27 +26,27 @@ class Docker extends Base {
     }
   }
 
-  navEnter() {
+  navEnter () {
     this.ctx.props.apis.request('docker')
   }
 
-  navGroup() {
+  navGroup () {
     return 'docker'
   }
 
-  menuName() {
+  menuName () {
     return i18n.__('Docker Menu Name')
   }
 
-  menuIcon() {
+  menuIcon () {
     return DockerIcon
   }
 
-  appBarStyle() {
+  appBarStyle () {
     return 'colored'
   }
 
-  renderContent({ openSnackBar }) {
+  renderContent ({ openSnackBar }) {
     return (
       <Market
         apis={this.ctx.props.apis}

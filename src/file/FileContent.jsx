@@ -1,6 +1,5 @@
 import React from 'react'
 import i18n from 'i18n'
-import Debug from 'debug'
 import EventListener from 'react-event-listener'
 import { CircularProgress } from 'material-ui'
 import UploadIcon from 'material-ui/svg-icons/file/cloud-upload'
@@ -9,10 +8,8 @@ import ContainerOverlay from './ContainerOverlay'
 import RenderListByRow from './RenderListByRow'
 import GridView from './GridView'
 
-const debug = Debug('component:file:FileContent:')
-
 class FileContent extends React.Component {
-  constructor(props) {
+  constructor (props) {
     super(props)
 
     this.state = {
@@ -23,7 +20,6 @@ class FileContent extends React.Component {
 
     /* cathc key action */
     this.keyDown = (e) => {
-      // debug('keyEvent')
       const { copy, createNewFolder, loading, move, rename, share } = this.props
       if (copy || createNewFolder || this.props.delete || loading || move || rename || share) return
       if (this.props.select) {
@@ -65,6 +61,7 @@ class FileContent extends React.Component {
 
       /* just touch */
       this.props.select.touchTap(button, index)
+      this.props.resetScrollTo()
 
       /* right click */
       if (button === 2) {
@@ -74,13 +71,12 @@ class FileContent extends React.Component {
 
     this.onRowDoubleClick = (e, index) => {
       if (index === -1) return
-      // debug('rowDoubleClick', this.props, index)
       const entry = this.props.entries[index]
       this.props.listNavBySelect(entry)
       if (entry.type === 'file') {
+        /* do nothing when fileSelect is true */
         if (!this.props.fileSelect) this.setState({ seqIndex: index, preview: true })
       } else {
-        // debug('should change to loading')
         this.setState({ loading: true })
       }
     }
@@ -99,14 +95,12 @@ class FileContent extends React.Component {
       const dir = this.props.path
       const dirUUID = dir[dir.length - 1].uuid
       const driveUUID = this.props.path[0].uuid
-      // debug('drop files!!', files, dirUUID, driveUUID, dir)
       if (!dirUUID || !driveUUID) {
         this.props.openSnackBar(i18n.__('No Drag File Warning in Public'))
       } else {
         this.props.ipcRenderer.send('DRAG_FILE', { files, dirUUID, driveUUID })
       }
     }
-
 
     /* selectBox
      * if mode === row
@@ -162,7 +156,6 @@ class FileContent extends React.Component {
       const s = this.refSelectBox.style
       const dx = event.clientX - this.selectBox.x
       const dy = event.clientY - this.selectBox.y
-      // debug('event.clientX event.clientY', event.clientX, event.clientY)
       if (dy < 0) this.up = true
       else this.up = false
 
@@ -269,26 +262,24 @@ class FileContent extends React.Component {
     this.exSelect = e => (this.props.gridView ? this.selectGrid(e, this.data) : this.selectRow(e, this.scrollTop))
   }
 
-  componentDidMount() {
+  componentDidMount () {
     /* bind keydown event */
     document.addEventListener('keydown', this.keyDown)
     document.addEventListener('keyup', this.keyUp)
   }
 
-
-  componentWillReceiveProps(nextProps) {
-    // debug('componentWillReceiveProps', this.props, nextProps)
+  componentWillReceiveProps (nextProps) {
     if (nextProps.loading) this.setState({ loading: true })
     if (nextProps.entries && this.props.entries !== nextProps.entries) this.setState({ loading: false })
   }
 
-  componentWillUnmount() {
+  componentWillUnmount () {
     /* remove keydown event */
     document.removeEventListener('keydown', this.keyDown)
     document.removeEventListener('keyup', this.keyUp)
   }
 
-  renderNoFile() {
+  renderNoFile () {
     return (
       <div
         style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
@@ -296,29 +287,31 @@ class FileContent extends React.Component {
         onDrop={this.drop}
       >
         {
-          this.props.fileSelect ? i18n.__('Empty Folder Text') :
-            <div
-              style={{
-                width: 360,
-                height: 360,
-                borderRadius: '180px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexDirection: 'column',
-                backgroundColor: '#FAFAFA'
-              }}
-            >
-              <UploadIcon style={{ height: 64, width: 64, color: 'rgba(0,0,0,0.27)' }} />
-              <div style={{ fontSize: 24, color: 'rgba(0,0,0,0.27)' }}> { i18n.__('No File Text 1') } </div>
-              <div style={{ color: 'rgba(0,0,0,0.27)' }}> { i18n.__('No File Text 2') } </div>
-            </div>
+          this.props.fileSelect ? i18n.__('Empty Folder Text')
+            : (
+              <div
+                style={{
+                  width: 360,
+                  height: 360,
+                  borderRadius: '180px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexDirection: 'column',
+                  backgroundColor: '#FAFAFA'
+                }}
+              >
+                <UploadIcon style={{ height: 64, width: 64, color: 'rgba(0,0,0,0.27)' }} />
+                <div style={{ fontSize: 24, color: 'rgba(0,0,0,0.27)' }}> { i18n.__('No File Text 1') } </div>
+                <div style={{ color: 'rgba(0,0,0,0.27)' }}> { i18n.__('No File Text 2') } </div>
+              </div>
+            )
         }
       </div>
     )
   }
 
-  renderOffLine() {
+  renderOffLine () {
     return (
       <div
         style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
@@ -343,7 +336,7 @@ class FileContent extends React.Component {
     )
   }
 
-  renderLoading() {
+  renderLoading () {
     return (
       <div style={{ width: '100%', height: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }} >
         <CircularProgress size={32} thickness={3} />
@@ -351,8 +344,8 @@ class FileContent extends React.Component {
     )
   }
 
-  render() {
-    console.log('render', this.state, this.props)
+  render () {
+    // console.log('render', this.state, this.props)
     /* loding */
     if (this.state.loading) return this.renderLoading()
 
@@ -386,8 +379,7 @@ class FileContent extends React.Component {
               onScroll={this.onScroll}
               drop={this.drop}
             />
-            :
-            <RenderListByRow
+            : <RenderListByRow
               {...this.props}
               onRowTouchTap={this.onRowTouchTap}
               onRowMouseEnter={this.onRowMouseEnter}
@@ -420,6 +412,7 @@ class FileContent extends React.Component {
 
         {/* selection box */}
         <div
+          role="presentation"
           ref={ref => (this.refSelectBox = ref)}
           onMouseDown={e => this.selectStart(e)}
           onMouseUp={e => this.selectEnd(e)}

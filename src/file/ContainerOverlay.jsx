@@ -1,10 +1,8 @@
 import React from 'react'
 import i18n from 'i18n'
-import Debug from 'debug'
-import { IconButton, Avatar } from 'material-ui'
+import { IconButton } from 'material-ui'
 import ErrorIcon from 'material-ui/svg-icons/alert/error'
 import FileFolder from 'material-ui/svg-icons/file/folder'
-import CloseIcon from 'material-ui/svg-icons/navigation/close'
 import DownloadIcon from 'material-ui/svg-icons/file/file-download'
 import RenderToLayer from 'material-ui/internal/RenderToLayer'
 import keycode from 'keycode'
@@ -14,20 +12,8 @@ import ReactTransitionGroup from 'react-transition-group/TransitionGroup'
 import Preview from './Preview'
 import renderFileIcon from '../common/renderFileIcon'
 
-const debug = Debug('component:file:ContainerOverlay')
-
-const mousePosition = (ev) => {
-  if (ev.pageX || ev.pageY) {
-    return { x: ev.pageX, y: ev.pageY }
-  }
-  return {
-    x: ev.clientX + document.body.scrollLeft - document.body.clientLeft,
-    y: ev.clientY + document.body.scrollTop - document.body.clientTop
-  }
-}
-
 class ContainerOverlayInline extends React.Component {
-  constructor(props) {
+  constructor (props) {
     super(props)
 
     this.dragPosition = { x: 0, y: 0, left: 0, top: 0 }
@@ -46,7 +32,6 @@ class ContainerOverlayInline extends React.Component {
     }
 
     this.changeIndex = (direction) => {
-      // debug('this.changeIndex', direction, this)
       if (direction === 'right' && this.currentIndex < this.props.items.length - 1) {
         this.currentIndex += 1
 
@@ -81,7 +66,6 @@ class ContainerOverlayInline extends React.Component {
         this.currentIndex -= 1
 
         /* hidden right div which move 200%, show other divs */
-        // debug('direction === left', this.leftItem, this.centerItem, this.rightItem)
         for (let i = 0; i < 3; i++) {
           if (this[`refPreview_${i}`].style.left === '20%') {
             /* update div content */
@@ -136,7 +120,6 @@ class ContainerOverlayInline extends React.Component {
     }
 
     this.handleKeyUp = (event) => {
-      // debug('this.handleKeyUp', keycode(event))
       switch (keycode(event)) {
         case 'esc': return this.close()
         case 'left': return this.changeIndex('left')
@@ -146,13 +129,12 @@ class ContainerOverlayInline extends React.Component {
     }
 
     this.updateContainerSize = (zoom) => {
-      // debug('this.updateContainerSize', zoom)
       this.zoom = zoom
       this.forceUpdate()
     }
   }
 
-  componentWillMount() {
+  componentWillMount () {
     /* init three items' content */
     this.centerItem = this.props.items[this.currentIndex]
     this.leftItem = {}
@@ -165,31 +147,30 @@ class ContainerOverlayInline extends React.Component {
     }
   }
 
-  componentWillUnmount() {
+  componentWillUnmount () {
     clearTimeout(this.enterTimeout)
     clearTimeout(this.leaveTimeout)
   }
 
   /* ReactTransitionGroup */
 
-  componentWillEnter(callback) {
+  componentWillEnter (callback) {
     this.componentWillAppear(callback)
   }
 
-  componentWillAppear(callback) {
+  componentWillAppear (callback) {
     this.props.setAnimation('NavigationMenu', 'Out')
     this.animation('In')
     this.enterTimeout = setTimeout(callback, 200) // matches transition duration
   }
 
-  componentWillLeave(callback) {
+  componentWillLeave (callback) {
     this.props.setAnimation('NavigationMenu', 'In')
     this.animation('Out')
     this.leaveTimeout = setTimeout(callback, 200) // matches transition duration
   }
 
-  render() {
-    // debug('redner ContainerOverlay', this.props)
+  render () {
     const { primaryColor } = this.props
     const entry = this.props.items[this.currentIndex]
     this.firstFileIndex = this.props.items.findIndex(item => item.type === 'file')
@@ -299,8 +280,8 @@ class ContainerOverlayInline extends React.Component {
                 entry.type === 'public' || entry.type === 'directory'
                   ? <FileFolder style={{ color: 'rgba(0,0,0,0.54)' }} />
                   : entry.type === 'file'
-                  ? renderFileIcon(entry.name, entry.metadata, 24, true) // name, metadata, size, dark
-                  : <ErrorIcon style={{ color: 'rgba(0,0,0,0.54)' }} />
+                    ? renderFileIcon(entry.name, entry.metadata, 24, true) // name, metadata, size, dark
+                    : <ErrorIcon style={{ color: 'rgba(0,0,0,0.54)' }} />
               }
               <div style={{ width: 16 }} />
               <div
@@ -393,7 +374,7 @@ class ContainerOverlay extends React.Component {
     </ReactTransitionGroup>
   )
 
-  render() {
+  render () {
     return (
       <RenderToLayer render={this.renderLayer} open useLayerForClickAway={false} />
     )

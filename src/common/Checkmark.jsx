@@ -1,21 +1,15 @@
 import React from 'react'
-import ReactDOM from 'react-dom'
 
 class Checkmark extends React.Component {
-  constructor() {
-    super()
-  }
-
-  componentDidMount() {
-    this.canvas = ReactDOM.findDOMNode(this.refs.canvas)
+  componentDidMount () {
     setTimeout(() => this.animate(this.canvas), this.props.delay || 0)
   }
 
-  componentWillUnmount() {
+  componentWillUnmount () {
     this.unmounted = true
   }
 
-  animate(canvas) {
+  animate (canvas) {
     const start = 20
     const mid = 40
     const end = 80
@@ -31,33 +25,41 @@ class Checkmark extends React.Component {
     ctx.lineWidth = width
     ctx.strokeStyle = this.props.color || '#009688'
 
-    for (var i = start; i < mid; i++) {
-      const drawLeft = window.setTimeout(function () {
+    const drawLeft = (i) => {
+      setTimeout(() => {
         if (this.unmounted) return
         ctx.beginPath()
         ctx.moveTo(start, start)
         ctx.lineTo(leftX, leftY)
         ctx.stroke()
-        leftX++
-        leftY++
+        leftX += 1
+        leftY += 1
       }, 1 + (i * animationSpeed) / 3)
     }
 
-    for (var i = mid; i < end; i++) {
-      const drawRight = window.setTimeout(function () {
+    const drawRight = (i) => {
+      setTimeout(() => {
         if (this.unmounted) return
         ctx.beginPath()
         ctx.moveTo(leftX, leftY)
         ctx.lineTo(rightX, rightY)
         ctx.stroke()
-        rightX++
-        rightY--
+        rightX += 1
+        rightY -= 1
       }, 1 + (i * animationSpeed) / 3)
+    }
+
+    for (let i = start; i < mid; i++) {
+      drawLeft(i)
+    }
+
+    for (let i = mid; i < end; i++) {
+      drawRight(i)
     }
   }
 
-  render() {
-    return <canvas width={96} height={48} ref="canvas" />
+  render () {
+    return <canvas width={96} height={48} ref={ref => (this.canvas = ref)} />
   }
 }
 

@@ -1,16 +1,15 @@
-import fs from 'fs'
-import os from 'os'
-import i18n from 'i18n'
-import path from 'path'
-import UUID from 'uuid'
-import request from 'superagent'
-import { ipcMain, shell, app, Notification } from 'electron'
+const os = require('os')
+const i18n = require('i18n')
+const path = require('path')
+const UUID = require('uuid')
+const Promise = require('bluebird')
+const request = require('superagent')
+const fs = Promise.promisifyAll(require('original-fs')) // eslint-disable-line
+const { ipcMain, shell, app, Notification } = require('electron')
 
-import store from './store'
-import { ftpGet } from './ftp'
-import { getMainWindow } from './window'
-
-Promise.promisifyAll(fs) // babel would transform Promise to bluebird
+const store = require('./store')
+const { ftpGet } = require('./ftp')
+const { getMainWindow } = require('./window')
 
 const getTmpPath = () => store.getState().config.tmpPath
 
@@ -40,7 +39,7 @@ const checkUpdateAsync = async () => {
   try {
     data = await checkAsync()
   } catch (e) {
-    const error = e && e.response && e.response.body || e
+    const error = (e && e.response && e.response.body) || e
     console.log('checkUpdateAsync error', error)
     return getMainWindow().webContents.send('NEW_RELEASE', { error })
   }
@@ -63,15 +62,14 @@ const install = (e, filePath) => {
   setTimeout(() => app.quit(), 100)
 }
 
-const download = (url, filePath) => {
+const download = (url, filePath) => { // eslint-disable-line
   const tmpPath = path.join(getTmpPath(), UUID.v4())
-  const options = { method: 'GET', url }
   const stream = fs.createWriteStream(tmpPath)
   const promise = new Promise((resolve, reject) => {
     stream.on('finish', () => {
       fs.rename(tmpPath, filePath, (err) => {
         if (!err) return resolve(filePath)
-        return reject()
+        return reject(err)
       })
     })
     stream.on('error', reject)
@@ -98,9 +96,9 @@ const compareVerison = (a, b) => {
   return 0
 }
 
-const downloadAsync = async () => {
-  if (!['win32', 'darwin'].includes(os.platform())) return
-  const { filePath, url, rel, fileName } = await checkAsync()
+const downloadAsync = async () => { // eslint-disable-line
+  if (!['win32', 'darwin'].includes(os.platform())) return console.log('not support platform')
+  const { filePath, url, rel, fileName } = await checkAsync() // eslint-disable-line
   console.log('downloadAsync: check release')
   const currVersion = app.getVersion()
   if (compareVerison(currVersion, rel.name) >= 0) return console.log('already latest')

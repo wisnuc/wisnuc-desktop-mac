@@ -1,24 +1,10 @@
 import React from 'react'
 import i18n from 'i18n'
 import EventListener from 'react-event-listener'
-import { TweenMax } from 'gsap'
-import { IconButton, CircularProgress, Paper, Avatar } from 'material-ui'
-import CloseIcon from 'material-ui/svg-icons/navigation/close'
-import FileFolder from 'material-ui/svg-icons/file/folder'
-import DeleteIcon from 'material-ui/svg-icons/action/delete'
-import VisibilityOff from 'material-ui/svg-icons/action/visibility-off'
-import DownloadIcon from 'material-ui/svg-icons/file/file-download'
-import UploadIcon from 'material-ui/svg-icons/file/cloud-upload'
+import { CircularProgress } from 'material-ui'
 import { CellMeasurer, CellMeasurerCache, createMasonryCellPositioner, Masonry, AutoSizer } from 'react-virtualized'
-import DialogOverlay from '../common/DialogOverlay'
-import FlatButton from '../common/FlatButton'
-import { parseTime } from '../common/datetime'
 import DetailContainer from '../photo/DetailContainer'
 import MediaBox from './MediaBox'
-
-const curve = 'all 450ms cubic-bezier(0.23, 1, 0.32, 1) 0ms'
-
-const imgUrl = 'http://cn.bing.com/th?id=ABT1B401B62BAA3194420276E294380581BC45A4292AE1FF991F97E75ED74A511A1&w=608&h=200&c=2&rs=1&pid=SANGAM'
 
 const getName = (photo) => {
   if (!photo.date && !photo.datetime) {
@@ -28,9 +14,8 @@ const getName = (photo) => {
   return `IMG-${date.split(/\s+/g)[0].replace(/[:\s]+/g, '')}-${photo.hash.slice(0, 5).toUpperCase()}-PC.${photo.m}`
 }
 
-
 class Inbox extends React.Component {
-  constructor(props) {
+  constructor (props) {
     super(props)
 
     this.state = {
@@ -86,32 +71,7 @@ class Inbox extends React.Component {
     }
   }
 
-  componentDidMount() {
-  }
-
-  renderNoData() {
-    return (
-      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }} >
-        <div
-          style={{
-            width: 360,
-            height: 360,
-            borderRadius: '180px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexDirection: 'column',
-            backgroundColor: '#FAFAFA'
-          }}
-        >
-          <div style={{ fontSize: 24, color: 'rgba(0,0,0,0.27)', height: 56 }}> { i18n.__('No Data in Inbox Text 1') } </div>
-          <div style={{ color: 'rgba(0,0,0,0.27)' }}> { i18n.__('No Data in Inbox Text 2') } </div>
-        </div>
-      </div>
-    )
-  }
-
-  calcPos(data, s) {
+  calcPos (data, s) {
     let [h1, h2] = [16, 16]
     const pos = data.map((d, i) => {
       const h = d.height // raw height
@@ -175,9 +135,10 @@ class Inbox extends React.Component {
     return pos
   }
 
-  process(data) {
+  process (data) {
     const res = data.map((d) => {
-      const { type, comment, index, tweeter, list, uuid } = d
+      // const { type, comment, index, tweeter, list, uuid } = d
+      const { list } = d
       if (list && list.length > 0) {
         if (list.every(l => l.metadata)) {
           const { h, w } = list[0].metadata
@@ -191,7 +152,29 @@ class Inbox extends React.Component {
     return res // ({ height, content })
   }
 
-  renderMasonry(list) {
+  renderNoData () {
+    return (
+      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }} >
+        <div
+          style={{
+            width: 360,
+            height: 360,
+            borderRadius: '180px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexDirection: 'column',
+            backgroundColor: '#FAFAFA'
+          }}
+        >
+          <div style={{ fontSize: 24, color: 'rgba(0,0,0,0.27)', height: 56 }}> { i18n.__('No Data in Inbox Text 1') } </div>
+          <div style={{ color: 'rgba(0,0,0,0.27)' }}> { i18n.__('No Data in Inbox Text 2') } </div>
+        </div>
+      </div>
+    )
+  }
+
+  renderMasonry (list) {
     const cache = new CellMeasurerCache({
       defaultHeight: 360,
       defaultWidth: 360,
@@ -239,7 +222,7 @@ class Inbox extends React.Component {
     )
   }
 
-  render() {
+  render () {
     // console.log('Box', this.props, this.state)
     return (
       <div
@@ -257,38 +240,42 @@ class Inbox extends React.Component {
 
         {/* PhotoList */}
         {
-           !this.props.tweets ?
-             <div
-               style={{
-                 position: 'relative',
-                 marginTop: -7,
-                 width: '100%',
-                 height: '100%',
-                 display: 'flex',
-                 alignItems: 'center',
-                 justifyContent: 'center'
-               }}
-             >
-               <CircularProgress />
-             </div> :
-            this.props.tweets.length ?
-            <div style={{ width: 810, position: 'relative' }}>
-              {/* this.renderMasonry(this.props.tweets) */}
-              {
-                this.calcPos(this.process(this.props.tweets), this.state.selected).map((v, i) => (
-                  <MediaBox
-                    key={v.content.uuid}
-                    i={i}
-                    data={v}
-                    items={v.content.list}
-                    handleSelect={this.handleSelect}
-                    ipcRenderer={this.props.ipcRenderer}
-                    lookPhotoDetail={this.lookPhotoDetail}
-                  />
-                ))
-              }
-            </div>
-            : this.renderNoData()
+          !this.props.tweets
+            ? (
+              <div
+                style={{
+                  position: 'relative',
+                  marginTop: -7,
+                  width: '100%',
+                  height: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                <CircularProgress />
+              </div>
+            )
+            : this.props.tweets.length
+              ? (
+                <div style={{ width: 810, position: 'relative' }}>
+                  {/* this.renderMasonry(this.props.tweets) */}
+                  {
+                    this.calcPos(this.process(this.props.tweets), this.state.selected).map((v, i) => (
+                      <MediaBox
+                        key={v.content.uuid}
+                        i={i}
+                        data={v}
+                        items={v.content.list}
+                        handleSelect={this.handleSelect}
+                        ipcRenderer={this.props.ipcRenderer}
+                        lookPhotoDetail={this.lookPhotoDetail}
+                      />
+                    ))
+                  }
+                </div>
+              )
+              : this.renderNoData()
         }
 
         {/* PhotoDetail */}

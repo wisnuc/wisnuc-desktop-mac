@@ -1,10 +1,8 @@
-import React, { Component, PureComponent } from 'react'
+import React from 'react'
 import i18n from 'i18n'
 import Debug from 'debug'
-import ReactDOM from 'react-dom'
-import { FlatButton, CircularProgress, Divider, IconButton, TextField } from 'material-ui'
-import { indigo900, cyan500, cyan900, teal900, lightGreen900, lime900, yellow900, teal500
-} from 'material-ui/styles/colors'
+import { FlatButton, CircularProgress, Divider, IconButton } from 'material-ui'
+import { teal500 } from 'material-ui/styles/colors'
 import RefreshIcon from 'material-ui/svg-icons/navigation/refresh'
 
 import CrossNav from './CrossNav'
@@ -20,11 +18,10 @@ import PureDialog from '../common/PureDialog'
 import WeChatBind from '../control/WeChatBind'
 
 const debug = Debug('component:Login')
-const colorArray = [indigo900, cyan900, teal900, lightGreen900, lime900, yellow900]
 const duration = 300
 
 const StateUp = base => class extends base {
-  setSubState(name, nextSubState) {
+  setSubState (name, nextSubState) {
     const state = this.props.state || this.state
     const subState = state[name]
     const nextSubStateMerged = Object.assign(new subState.constructor(), subState, nextSubState)
@@ -34,12 +31,12 @@ const StateUp = base => class extends base {
       : this.setState(nextState)
   }
 
-  setSubStateBound(name) {
+  setSubStateBound (name) {
     const obj = this.setSubStateBoundObj || (this.setSubStateBoundObj = {})
     return obj[name] ? obj[name] : (obj[name] = this.setSubState.bind(this, name))
   }
 
-  bindVState(name) {
+  bindVState (name) {
     return {
       state: this.props.state ? this.props.state[name] : this.state[name],
       setState: this.setSubStateBound(name)
@@ -48,18 +45,18 @@ const StateUp = base => class extends base {
 }
 
 // pure animation frame !
-class DeviceCard extends PureComponent {
-  componentWillEnter(callback) {
-    this.props.onWillEnter(ReactDOM.findDOMNode(this), callback)
+class DeviceCard extends React.PureComponent {
+  componentWillEnter (callback) {
+    this.props.onWillEnter(this.refComp, callback)
   }
 
-  componentWillLeave(callback) {
-    this.props.onWillLeave(ReactDOM.findDOMNode(this), callback)
+  componentWillLeave (callback) {
+    this.props.onWillLeave(this.refComp, callback)
   }
 
-  render() {
+  render () {
     return (
-      <div style={this.props.style}>
+      <div style={this.props.style} ref={ref => (this.refComp = ref)}>
         { this.props.children }
       </div>
     )
@@ -72,7 +69,7 @@ class DeviceCard extends PureComponent {
 // 3. background dim
 // 4. card color
 class Login extends StateUp(React.Component) {
-  constructor(props) {
+  constructor (props) {
     super(props)
 
     this.state = {
@@ -172,10 +169,26 @@ class Login extends StateUp(React.Component) {
     this.bindWechatSuccess = () => {
       this.setState({ weChatStatus: 'success' })
     }
+
+    this.doneAsync = async (view, device, user) => {
+      this.setState({ bye: true, dim: false, enter: 'bottom' })
+      await Promise.delay(360)
+
+      this.setState({ byebye: true })
+      await Promise.delay(360)
+
+      if (view === 'maintenance') { this.props.maintain() } else {
+        this.props.ipcRenderer.send('LOGIN', device, user)
+        this.props.login()
+      }
+    }
+
+    this.done = (view, device, user) => {
+      this.doneAsync(view, device, user).asCallback(err => err && console.error('login error', err))
+    }
   }
 
-
-  async toggleExpandedAsync(pure) {
+  async toggleExpandedAsync (pure) {
     const { vexpand, hexpand, expanded } = this.state
     if (vexpand !== hexpand || hexpand !== expanded) return
 
@@ -207,33 +220,33 @@ class Login extends StateUp(React.Component) {
     }
   }
 
-  navPrev() {
-    const { mdns, selectedDevice, selectDevice } = this.props
+  navPrev () {
+    const { mdns, selectedDevice } = this.props
     const index = mdns.findIndex(mdev => mdev === selectedDevice.mdev)
     if (index <= 0) return
     this.props.selectDevice(mdns[index - 1])
   }
 
-  navNext() {
+  navNext () {
     const { mdns, selectedDevice, selectDevice } = this.props
     const index = mdns.findIndex(mdev => mdev === selectedDevice.mdev)
     if (index >= mdns.length - 1) return
     selectDevice(mdns[index + 1])
   }
 
-  isFirst() {
+  isFirst () {
     const { mdns, selectedDevice } = this.props
     return mdns[0] === selectedDevice.mdev
   }
 
-  isLast() {
+  isLast () {
     const { mdns, selectedDevice } = this.props
     return mdns[mdns.length - 1] === selectedDevice.mdev
   }
 
   // card change detection is implemented here to conform to
   // `stateless` and `unidirection dataflow`
-  componentWillReceiveProps(nextProps) {
+  componentWillReceiveProps (nextProps) {
     const currProps = this.props
 
     // device card enter from bottom
@@ -250,28 +263,26 @@ class Login extends StateUp(React.Component) {
       const nextIndex = nextProps.mdns.findIndex(mdev => mdev === nextProps.selectedDevice.mdev)
 
       this.setState({ enter: nextIndex >= currIndex ? 'right' : 'left' })
-    }
-
-    // don't know final sequence TODO
-    else {
+    } else {
+      // don't know final sequence TODO
       this.setState({ enter: 'bottom' })
     }
   }
 
-  componentDidMount() {
+  componentDidMount () {
     setTimeout(() => this.setState({ hello: false }), 300)
   }
 
-  initWizardOnCancel() {
+  initWizardOnCancel () {
     this.toggleExpandedAsync().asCallback()
   }
 
-  initWizardOnFail() {
+  initWizardOnFail () {
     this.toggleExpandedAsync().asCallback()
     setTimeout(() => this.refresh(), 600)
   }
 
-  initWizardOnOK() {
+  initWizardOnOK () {
     const view = 'LOGIN'
     debug('this.props.selectedDevice', this.props.selectedDevice)
     const device = this.props.selectedDevice
@@ -279,25 +290,7 @@ class Login extends StateUp(React.Component) {
     this.done(view, device, user)
   }
 
-
-  async doneAsync(view, device, user) {
-    this.setState({ bye: true, dim: false, enter: 'bottom' })
-    await Promise.delay(360)
-
-    this.setState({ byebye: true })
-    await Promise.delay(360)
-
-    if (view === 'maintenance') { this.props.maintain() } else {
-      this.props.ipcRenderer.send('LOGIN', device, user)
-      this.props.login()
-    }
-  }
-
-  done(view, device, user) {
-    this.doneAsync(view, device, user).asCallback()
-  }
-
-  renderFooter() {
+  renderFooter () {
     const pullError = () => {
       const { boot, storage, users } = this.props.selectedDevice
       const obj = {
@@ -352,12 +345,10 @@ class Login extends StateUp(React.Component) {
       return null
     }
 
-
     let text
     let busy
     let maint
     let error
-    let uninit
 
     switch (status) {
       case 'ready': // users.length === 0 need to add FirstUser Box TODO
@@ -437,7 +428,7 @@ class Login extends StateUp(React.Component) {
           <UserBox
             device={this.props.selectedDevice}
             toggleDisplay={this.toggleDisplay}
-            done={this.done.bind(this)}
+            done={this.done}
           />
         )
       }
@@ -490,9 +481,8 @@ class Login extends StateUp(React.Component) {
     return <div style={boxStyle} />
   }
 
-  render() {
+  render () {
     const { mdns, selectedDevice } = this.props
-    // debug('Local Login render', this.props)
 
     let cardProps
     let displayProps
@@ -531,83 +521,90 @@ class Login extends StateUp(React.Component) {
         }
         {
           mdns.length > 0 || this.state.refresh || this.state.hello
-            ? <div style={{ width: 380, height: 540, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              <CrossNav duration={0.35} enter={this.state.enter}>
-                {
-                  (this.state.bye || this.state.hello)
-                  ? <DeviceCard />
-                  : selectedDevice === null || (selectedDevice && !selectedDevice.mdev.address)
-                  ? <DeviceCard {...cardProps}>
-                    <div style={{ width: 380, height: 540, backgroundColor: '#FAFAFA' }}>
-                      <div style={{ height: 72, backgroundColor: '#FAFAFA', display: 'flex', alignItems: 'center' }} >
-                        <div style={{ marginLeft: 24 }} >
-                          { i18n.__('Login via LAN') }
-                        </div>
-                      </div>
-                      <Divider />
+            ? (
+              <div style={{ width: 380, height: 540, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                <CrossNav duration={0.35} enter={this.state.enter}>
+                  {
+                    (this.state.bye || this.state.hello)
+                      ? <DeviceCard />
+                      : selectedDevice === null || (selectedDevice && !selectedDevice.mdev.address)
+                        ? (
+                          <DeviceCard {...cardProps}>
+                            <div style={{ width: 380, height: 540, backgroundColor: '#FAFAFA' }}>
+                              <div style={{ height: 72, backgroundColor: '#FAFAFA', display: 'flex', alignItems: 'center' }} >
+                                <div style={{ marginLeft: 24 }} >
+                                  { i18n.__('Login via LAN') }
+                                </div>
+                              </div>
+                              <Divider />
 
-                      {/* content */}
-                      <div style={{ height: 270, display: 'flex', alignItems: 'center', justifyContent: 'center' }} >
-                        <CircularProgress size={64} thickness={5} />
-                      </div>
-                      <div style={{ height: 36 }} />
-                      <div style={{ textAlign: 'center', color: 'rgba(0,0,0,0.87)', fontSize: 20, height: 36 }}>
-                        { i18n.__('Searching Device') }
-                      </div>
-                    </div>
-                  </DeviceCard>
-                  : <DeviceCard {...cardProps}>
-                    <div style={cardInnerStyle}>
-                      { !this.state.compact &&
-                      <div style={{ height: 72, backgroundColor: '#FAFAFA', display: 'flex', alignItems: 'center' }} >
-                        <div style={{ marginLeft: 24 }}>
-                          { i18n.__('Login via LAN') }
-                        </div>
-                        <div style={{ flexGrow: 1 }} />
-                        <div style={{ width: 56 }}>
-                          <IconButton onTouchTap={this.refresh} >
-                            <RefreshIcon />
-                          </IconButton>
-                        </div>
-                      </div>
-                      }
-                      <DeviceInfo {...displayProps} />
-                      <Divider />
-                      { this.renderFooter() }
-                    </div>
-                  </DeviceCard>
-                }
-              </CrossNav>
-            </div>
-            : <div style={{ width: 380, height: 540, backgroundColor: '#FAFAFA' }}>
-              <div style={{ height: 72, backgroundColor: '#FAFAFA', display: 'flex', alignItems: 'center' }} >
+                              {/* content */}
+                              <div style={{ height: 270, display: 'flex', alignItems: 'center', justifyContent: 'center' }} >
+                                <CircularProgress size={64} thickness={5} />
+                              </div>
+                              <div style={{ height: 36 }} />
+                              <div style={{ textAlign: 'center', color: 'rgba(0,0,0,0.87)', fontSize: 20, height: 36 }}>
+                                { i18n.__('Searching Device') }
+                              </div>
+                            </div>
+                          </DeviceCard>
+                        )
+                        : (
+                          <DeviceCard {...cardProps}>
+                            <div style={cardInnerStyle}>
+                              { !this.state.compact &&
+                              <div style={{ height: 72, backgroundColor: '#FAFAFA', display: 'flex', alignItems: 'center' }} >
+                                <div style={{ marginLeft: 24 }}>
+                                  { i18n.__('Login via LAN') }
+                                </div>
+                                <div style={{ flexGrow: 1 }} />
+                                <div style={{ width: 56 }}>
+                                  <IconButton onTouchTap={this.refresh} >
+                                    <RefreshIcon />
+                                  </IconButton>
+                                </div>
+                              </div>
+                              }
+                              <DeviceInfo {...displayProps} />
+                              <Divider />
+                              { this.renderFooter() }
+                            </div>
+                          </DeviceCard>
+                        )
+                  }
+                </CrossNav>
+              </div>
+            )
+            : (
+              <div style={{ width: 380, height: 540, backgroundColor: '#FAFAFA' }}>
+                <div style={{ height: 72, backgroundColor: '#FAFAFA', display: 'flex', alignItems: 'center' }} >
+                  <div style={{ marginLeft: 24 }} >
+                    { i18n.__('Login via LAN') }
+                  </div>
+                </div>
+                <Divider />
+
+                <div style={{ height: 8 }} />
+                {/* content */}
                 <div style={{ marginLeft: 24 }} >
-                  { i18n.__('Login via LAN') }
+                  <NoDevice
+                    refresh={this.refresh}
+                  />
+                </div>
+
+                {/* button */}
+                <div style={{ height: i18n.getLocale() === 'zh-CN' ? 128 : 116 }} />
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginRight: 8 }}>
+                  <FlatButton
+                    label={i18n.__('Refresh')}
+                    labelStyle={{ color: '#424242', fontWeight: 500 }}
+                    onTouchTap={this.refresh}
+                  />
                 </div>
               </div>
-              <Divider />
-
-              <div style={{ height: 8 }} />
-              {/* content */}
-              <div style={{ marginLeft: 24 }} >
-                <NoDevice
-                  refresh={this.refresh}
-                />
-              </div>
-
-              {/* button */}
-              <div style={{ height: i18n.getLocale() === 'zh-CN' ? 128 : 116 }} />
-              <div style={{ display: 'flex', justifyContent: 'flex-end', marginRight: 8 }}>
-                <FlatButton
-                  label={i18n.__('Refresh')}
-                  labelStyle={{ color: '#424242', fontWeight: 500 }}
-                  onTouchTap={this.refresh}
-                />
-              </div>
-            </div>
+            )
         }
         {/* wechat bind */}
-
         <PureDialog open={!!this.state.weChat} onRequestClose={() => this.setState({ weChat: false })}>
           {
             this.state.weChat &&

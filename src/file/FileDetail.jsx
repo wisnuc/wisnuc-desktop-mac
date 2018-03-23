@@ -1,15 +1,12 @@
 import React from 'react'
 import i18n from 'i18n'
-import Debug from 'debug'
 import prettysize from 'prettysize'
-import { CircularProgress, Divider } from 'material-ui'
+import { Divider } from 'material-ui'
 import FileFolder from 'material-ui/svg-icons/file/folder'
 import ContentCopy from 'material-ui/svg-icons/content/content-copy'
 import ErrorIcon from 'material-ui/svg-icons/alert/error'
 import Thumb from './Thumb'
 import renderFileIcon from '../common/renderFileIcon'
-
-const debug = Debug('component:file:FileDetail:')
 
 const phaseDate = (time) => {
   const a = new Date(time)
@@ -61,7 +58,7 @@ const getResolution = (height, width) => {
 }
 
 class FileDetail extends React.PureComponent {
-  renderList(titles, values) {
+  renderList (titles, values) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', flexDirection: 'column', width: '100%' }}>
         {
@@ -80,6 +77,7 @@ class FileDetail extends React.PureComponent {
               >
                 <div style={{ flex: '0 0 112px', fontSize: 14 }} > { title } </div>
                 <input
+                  onChange={() => {}}
                   value={values[index]}
                   style={{ width: 200, border: 0, padding: 3, fontSize: 14, color: 'rgba(0, 0, 0, 0.54)', backgroundColor: '#FAFAFA' }}
                 />
@@ -91,7 +89,7 @@ class FileDetail extends React.PureComponent {
     )
   }
 
-  renderTitle(detailFile) {
+  renderTitle (detailFile) {
     const { name, type, metadata } = detailFile
     return (
       <div
@@ -108,15 +106,16 @@ class FileDetail extends React.PureComponent {
         <div style={{ flex: '0 0 24px', display: 'flex', alignItems: 'center' }}>
           {
             type === 'public' || type === 'directory'
-            ? <FileFolder style={{ color: '#FFFFFF' }} />
-            : type === 'file'
-            ? renderFileIcon(name, metadata, 24, false, true) // name, metadata, size, dark, white
-            : <ErrorIcon style={{ color: '#FFFFFF' }} />
+              ? <FileFolder style={{ color: '#FFFFFF' }} />
+              : type === 'file'
+                ? renderFileIcon(name, metadata, 24, false, true) // name, metadata, size, dark, white
+                : <ErrorIcon style={{ color: '#FFFFFF' }} />
           }
         </div>
         <div style={{ flex: '0 0 16px' }} />
         <input
           value={name}
+          onChange={() => {}}
           style={{ flexGrow: 1, border: 0, padding: 3, fontSize: 20, fontWeight: 500, backgroundColor: 'transparent', color: '#FFFFFF' }}
         />
         <div style={{ flex: '0 0 24px' }} />
@@ -124,11 +123,10 @@ class FileDetail extends React.PureComponent {
     )
   }
 
-  renderMultiFiles(detailFile) {
+  renderMultiFiles (detailFile) {
     let size = 0
     const noSize = detailFile.findIndex(f => f.size === undefined) > -1
     if (!noSize) detailFile.forEach(f => (size += f.size))
-    // debug('renderMultiFiles', detailFile, noSize, size)
     const Titles = [
       i18n.__('Location'),
       noSize ? '' : i18n.__('Total Size')
@@ -176,7 +174,7 @@ class FileDetail extends React.PureComponent {
     )
   }
 
-  renderCounter() {
+  renderCounter () {
     // console.log('renderCounter', this.props.counter)
     const c = this.props.counter
     const Titles = [
@@ -206,8 +204,11 @@ class FileDetail extends React.PureComponent {
               </div>
               <div style={{ flex: '0 0 16px' }} />
               <input
+                onChange={() => {}}
                 value={getPath(this.props.path).split('/').slice(-1)[0]}
-                style={{ flexGrow: 1, border: 0, padding: 3, fontSize: 20, fontWeight: 500, backgroundColor: 'transparent', color: '#FFFFFF' }}
+                style={{
+                  flexGrow: 1, border: 0, padding: 3, fontSize: 20, fontWeight: 500, backgroundColor: 'transparent', color: '#FFFFFF'
+                }}
               />
               <div style={{ flex: '0 0 24px' }} />
             </div>
@@ -222,7 +223,7 @@ class FileDetail extends React.PureComponent {
     )
   }
 
-  render() {
+  render () {
     const { detailIndex, entries, path, primaryColor, counter } = this.props
     if (!detailIndex || !entries || (path && path.length === 1 && path[0].type === 'publicRoot') || (!counter && !detailIndex.length)) {
       return (<div style={{ height: 128, backgroundColor: primaryColor, filter: 'brightness(0.9)' }} />)
@@ -237,7 +238,6 @@ class FileDetail extends React.PureComponent {
       detailFile = detailIndex.map(i => entries[i])
       return this.renderMultiFiles(detailFile)
     }
-    // debug('detailFile', detailFile)
 
     const { metadata, hash } = detailFile
     let exifDateTime = ''

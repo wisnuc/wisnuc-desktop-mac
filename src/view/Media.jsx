@@ -23,7 +23,7 @@ const getName = (photo) => {
 ipcRenderer.setMaxListeners(1000)
 
 class Media extends Base {
-  constructor(ctx) {
+  constructor (ctx) {
     super(ctx)
     this.state = {
       media: null,
@@ -106,18 +106,22 @@ class Media extends Base {
         this.firstSelect = false
       }
       this.setState({ selectedItems: combineElement(digests, this.state.selectedItems).sort() })
+      this.lastSelect = digests.length === 1 ? digests[0] : null
     }
 
     this.removeListToSelection = (digests) => {
       this.setState({ selectedItems: removeElement(digests, this.state.selectedItems).sort() })
+      this.lastSelect = null
     }
 
-    this.clearSelect = () => { this.setState({ selectedItems: [] }) }
+    this.clearSelect = () => {
+      this.lastSelect = null
+      this.setState({ selectedItems: [] })
+    }
 
     this.getHoverPhoto = (digest) => {
-      if (!this.state.selectedItems.length) return
-      const lastSelect = this.state.selectedItems[this.state.selectedItems.length - 1]
-      const lastSelectIndex = this.media.findIndex(photo => photo.hash === lastSelect)
+      if (!this.state.selectedItems.length || !this.state.shift || !this.lastSelect) return
+      const lastSelectIndex = this.media.findIndex(photo => photo.hash === this.lastSelect)
       const hoverIndex = this.media.findIndex(photo => photo.hash === digest)
       let shiftHoverPhotos = this.media.slice(lastSelectIndex, hoverIndex + 1)
 
@@ -128,6 +132,7 @@ class Media extends Base {
     this.getShiftStatus = (event) => {
       if (event.shiftKey === this.state.shift) return
       this.setState({ shift: event.shiftKey })
+      if (!event.shiftKey) this.setState({ shiftHoverItems: [] })
     }
 
     this.startDownload = () => {
@@ -157,15 +162,16 @@ class Media extends Base {
     }
 
     this.hideMedia = (show) => { // show === true ? show media : hide media
-      const txt = show ? i18n.__('Retrieve') : i18n.__('Hide')
       const list = this.state.selectedItems.length
         ? this.state.selectedItems
         : [this.media.find(item => item.hash === this.memoizeValue.downloadDigest).hash]
+
       this.ctx.props.apis.request(show ? 'subtractBlacklist' : 'addBlacklist', list, (error) => {
         if (error) {
           this.ctx.openSnackBar(show ? i18n.__('Retrieve Media Failed') : i18n.__('Hide Media Failed'))
         } else {
-          this.ctx.openSnackBar(show ? i18n.__('Retrieve Media Success %s', list.length) : i18n.__('Hide Media Success %s', list.length))
+          this.ctx.openSnackBar(show ? i18n.__('Retrieve Media Success %s', list.length)
+            : i18n.__('Hide Media Success %s', list.length))
           this.navEnter()
           this.setState({ selectedItems: [] })
         }
@@ -187,73 +193,75 @@ class Media extends Base {
     }
 
     this.uploadMedia = () => {
-      if (!window.navigator.onLine) return this.ctx.openSnackBar(i18n.__('Offline Text'))
-      this.uploadMediaAsync().catch((e) => {
-        console.log('uploadMedia failed', e)
-        if (e && e.response && e.response.body && e.response.body.code === 'EEXIST') {
-          this.ctx.openSnackBar(i18n.__('Upload Media Folder EEXIST Text'))
-        } else {
-          this.ctx.openSnackBar(i18n.__('Upload Media Failed'))
-        }
-      })
+      if (!window.navigator.onLine) this.ctx.openSnackBar(i18n.__('Offline Text'))
+      else {
+        this.uploadMediaAsync().catch((e) => {
+          console.log('uploadMedia failed', e)
+          if (e && e.response && e.response.body && e.response.body.code === 'EEXIST') {
+            this.ctx.openSnackBar(i18n.__('Upload Media Folder EEXIST Text'))
+          } else {
+            this.ctx.openSnackBar(i18n.__('Upload Media Failed'))
+          }
+        })
+      }
     }
   }
 
-  willReceiveProps(nextProps) {
+  willReceiveProps (nextProps) {
     this.handleProps(nextProps.apis, ['blacklist', 'media'])
     this.media = this.processMedia(this.state.media, this.state.blacklist)
   }
 
-  navEnter() {
+  navEnter () {
     this.timeFlag = (new Date()).getTime()
     this.ctx.props.apis.request('blacklist')
     this.ctx.props.apis.request('media')
   }
 
-  navLeave() {
+  navLeave () {
   }
 
-  navGroup() {
+  navGroup () {
     return 'media'
   }
 
-  menuName() {
+  menuName () {
     return i18n.__('Media Menu Name')
   }
 
-  menuIcon() {
+  menuIcon () {
     return PhotoIcon
   }
 
-  quickName() {
+  quickName () {
     return i18n.__('Media Quick Name')
   }
 
-  appBarStyle() {
+  appBarStyle () {
     return 'light'
   }
 
-  prominent() {
+  prominent () {
     return false
   }
 
-  hasDetail() {
+  hasDetail () {
     return false
   }
 
-  detailEnabled() {
+  detailEnabled () {
     return true
   }
 
-  detailWidth() {
+  detailWidth () {
     return 400
   }
 
-  hasQuickNav() {
+  hasQuickNav () {
     return !this.state.selectedItems.length
   }
 
-  renderNavigationMenu({ style, onTouchTap }) {
+  renderNavigationMenu ({ style, onTouchTap }) {
     const CustomStyle = Object.assign(style, { opacity: 1 })
     return (
       <div style={CustomStyle} ref={ref => (this.refNavigationMenu = ref)}>
@@ -264,17 +272,16 @@ class Media extends Base {
     )
   }
 
-  renderTitle({ style }) {
+  renderTitle ({ style }) {
     const newStyle = Object.assign(style, { color: 'rgba(0,0,0,0.54)' })
     return (
       <div style={newStyle}>
-        { i18n.__('Media Title') }
-        { !!this.media && ` (${this.media.length})` }
+        { i18n.__n('Media Title and Count %s', this.media ? this.media.length : 0) }
       </div>
     )
   }
 
-  renderToolBar({ style }) {
+  renderToolBar ({ style }) {
     return (
       <div style={style}>
         <FlatButton label={i18n.__('Upload')} onTouchTap={this.uploadMedia} primary />
@@ -282,7 +289,7 @@ class Media extends Base {
     )
   }
 
-  renderContent() {
+  renderContent () {
     return (<PhotoApp
       media={this.media}
       ipcRenderer={ipcRenderer}

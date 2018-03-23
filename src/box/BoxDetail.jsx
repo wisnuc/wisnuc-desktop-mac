@@ -1,10 +1,7 @@
 import React from 'react'
 import i18n from 'i18n'
-import { CircularProgress, Divider, Avatar, Toggle, RaisedButton, IconButton } from 'material-ui'
-import FileFolder from 'material-ui/svg-icons/file/folder'
-import ContentCopy from 'material-ui/svg-icons/content/content-copy'
+import { Divider, Avatar, Toggle, IconButton } from 'material-ui'
 import ModeEdit from 'material-ui/svg-icons/editor/mode-edit'
-import ErrorIcon from 'material-ui/svg-icons/alert/error'
 import AddIcon from 'material-ui/svg-icons/content/add'
 import RemoveIcon from 'material-ui/svg-icons/content/remove'
 import DialogOverlay from '../common/DialogOverlay'
@@ -13,7 +10,7 @@ import UserSelect from './UserSelect'
 import NewNameDialog from './NewNameDialog'
 
 class BoxDetail extends React.Component {
-  constructor(props) {
+  constructor (props) {
     super(props)
 
     this.state = {
@@ -22,16 +19,22 @@ class BoxDetail extends React.Component {
       newName: false
     }
 
+    this.deleteBoxAsync = async () => {
+      const { apis, box, ada } = this.props
+      if (!box.deleted) await apis.pureRequestAsync('delBox', { boxUUID: box.uuid, stationId: box.stationId })
+      await ada.deleteBox(box.uuid)
+    }
 
     this.deleteBox = () => {
       this.setState({ loading: true })
-      const { apis, box, openSnackBar, refresh } = this.props
-      apis.pureRequest('delBox', { boxUUID: box.uuid, stationId: box.stationId }, (err) => {
+      const { openSnackBar, selectBox } = this.props
+      const cb = (err) => {
         if (err) openSnackBar(i18n.__('Delete Box Failed'))
         else openSnackBar(i18n.__('Delete Box Success'))
         this.setState({ delBox: false, loading: false })
-        refresh()
-      })
+        selectBox(-1)
+      }
+      this.deleteBoxAsync().then(cb).catch(cb)
     }
 
     this.addUser = (users) => {
@@ -41,11 +44,10 @@ class BoxDetail extends React.Component {
         'handleBoxUser',
         { boxUUID: box.uuid, op: 'add', guids: users.map(u => u.id), stationId: box.stationId },
         (err, res) => {
-          console.log('addUser', err, res)
           if (err) openSnackBar(i18n.__('Add Users to Box Failed'))
           else openSnackBar(i18n.__('Add Users to Box Success'))
           this.setState({ addUser: false, loading: false })
-          refresh()
+          refresh({ boxUUID: box.uuid })
         }
       )
     }
@@ -57,19 +59,18 @@ class BoxDetail extends React.Component {
         'handleBoxUser',
         { boxUUID: box.uuid, op: 'delete', guids: users.map(u => u.id), stationId: box.stationId },
         (err, res) => {
-          console.log('delUser', err, res)
           if (err) openSnackBar(i18n.__('Remove Users From Box Failed'))
           else openSnackBar(i18n.__('Remove Users From Box Success'))
           this.setState({ delUser: false, delBox: false, loading: false })
-          refresh()
+          refresh({ boxUUID: box.uuid })
         }
       )
     }
 
     this.toggle = type => this.setState({ [type]: !this.state[type] })
   }
-  
-  renderTitle(title) {
+
+  renderTitle (title) {
     return (
       <div style={{ height: 48, color: 'rgba(0,0,0,.54)', fontWeight: 500, fontSize: 14, display: 'flex', alignItems: 'center' }}>
         <div style={{ display: 'flex', alignItems: 'center' }}>
@@ -79,7 +80,7 @@ class BoxDetail extends React.Component {
     )
   }
 
-  renderDevice() {
+  renderDevice () {
     const name = this.props.box && this.props.box.station.name
     const ip = this.props.box && this.props.box.station.LANIP
     return (
@@ -95,7 +96,7 @@ class BoxDetail extends React.Component {
     )
   }
 
-  renderGroupName(name) {
+  renderGroupName (name) {
     const isOwner = this.props.box && this.props.box.owner === this.props.guid
     return (
       <div style={{ height: 48, color: 'rgba(0,0,0,.54)', fontWeight: 500, fontSize: 14, display: 'flex', alignItems: 'center' }}>
@@ -117,7 +118,7 @@ class BoxDetail extends React.Component {
     )
   }
 
-  renderToggle(title, toggled, onToggle) {
+  renderToggle (title, toggled, onToggle) {
     return (
       <div style={{ width: '100%', height: 48, display: 'flex', alignItems: 'center' }}>
         <div style={{ width: 144, color: 'rgba(0,0,0,.54)', fontWeight: 500, fontSize: 14 }}>
@@ -134,7 +135,7 @@ class BoxDetail extends React.Component {
     )
   }
 
-  renderAvatar(user) {
+  renderAvatar (user) {
     // console.log('renderAvatar', user)
     const onTouchTap = user.onTouchTap || (() => {})
     const { nickName, avatarUrl } = user
@@ -152,18 +153,20 @@ class BoxDetail extends React.Component {
       >
         <div style={{ lineHeight: '24px', fontSize: 14 }}>
           {
-            avatarUrl ?
-            <div style={{ borderRadius: 16, width: 32, height: 32, overflow: 'hidden' }}>
-              <img width={32} height={32} alt="" src={avatarUrl} />
-            </div> :
-            nickName.slice(0, 2).toUpperCase()
+            avatarUrl
+              ? (
+                <div style={{ borderRadius: 16, width: 32, height: 32, overflow: 'hidden' }}>
+                  <img width={32} height={32} alt="" src={avatarUrl} />
+                </div>
+              )
+              : nickName.slice(0, 2).toUpperCase()
           }
         </div>
       </Avatar>
     )
   }
 
-  renderAction(Icon, onTouchTap) {
+  renderAction (Icon, onTouchTap) {
     return (
       <div
         style={{
@@ -186,7 +189,7 @@ class BoxDetail extends React.Component {
     )
   }
 
-  render() {
+  render () {
     const { box, primaryColor, guid, refresh, openSnackBar, apis, getUsers } = this.props
     // console.log('BoxDetail', this.props)
     const isOwner = box && box.owner === guid
@@ -203,7 +206,7 @@ class BoxDetail extends React.Component {
         <div style={{ width: 312, padding: 24, overflow: 'auto' }}>
           { this.renderTitle(i18n.__('Group Members')) }
           <div style={{ maxHeight: 400, height: 44 * Math.ceil((box.users.length + isOwner * 2) / 7), position: 'relative' }}>
-            { box.users.map((u, i) => (i > 10 ? <div key={u.id} /> : this.renderAvatar(u))) }
+            { box.users.map((u, i) => this.renderAvatar(u)) }
             { isOwner && this.renderAction(AddIcon, () => this.setState({ addUser: true })) }
             { isOwner && this.renderAction(RemoveIcon, () => this.setState({ delUser: true })) }
           </div>

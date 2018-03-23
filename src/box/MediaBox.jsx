@@ -2,36 +2,23 @@ import React from 'react'
 import i18n from 'i18n'
 import EventListener from 'react-event-listener'
 import keycode from 'keycode'
-import { TweenMax } from 'gsap'
-import { IconButton, CircularProgress, Paper, Avatar } from 'material-ui'
+import { IconButton, Paper } from 'material-ui'
 import ListIcon from 'material-ui/svg-icons/action/list'
 import GridIcon from 'material-ui/svg-icons/action/view-module'
 import ShareIcon from 'material-ui/svg-icons/social/share'
-import CloseIcon from 'material-ui/svg-icons/navigation/close'
 import FileFolder from 'material-ui/svg-icons/file/folder'
-import DeleteIcon from 'material-ui/svg-icons/action/delete'
-import VisibilityOff from 'material-ui/svg-icons/action/visibility-off'
 import DownloadIcon from 'material-ui/svg-icons/file/file-download'
-import UploadIcon from 'material-ui/svg-icons/file/cloud-upload'
 import { AutoSizer } from 'react-virtualized'
-import DialogOverlay from '../common/DialogOverlay'
-import FlatButton from '../common/FlatButton'
 import { parseTime } from '../common/datetime'
 import ScrollBar from '../common/ScrollBar'
 import Thumb from '../file/Thumb'
 import Grid from './Grid'
 import Row from './Row'
 
-const curve = 'all 450ms cubic-bezier(0.23, 1, 0.32, 1) 0ms'
-
-const imgUrl = 'http://cn.bing.com/th?id=ABT1B401B62BAA3194420276E294380581BC45A4292AE1FF991F97E75ED74A511A1&w=608&h=200&c=2&rs=1&pid=SANGAM'
-
-const calcCurve = (tsd, wd) => {
-  return `all 450ms cubic-bezier(0.23, 1, 0.32, 1) ${tsd || '0ms'},
+const calcCurve = (tsd, wd) => `all 450ms cubic-bezier(0.23, 1, 0.32, 1) ${tsd || '0ms'},
           margin-left 450ms cubic-bezier(0.23, 1, 0.32, 1) ${wd || '0ms'},
           width 450ms cubic-bezier(0.23, 1, 0.32, 1) ${wd || '0ms'},
           height 450ms cubic-bezier(0.23, 1, 0.32, 1) ${wd || '0ms'}`
-}
 
 const arrowStyle = {
   backgroundColor: 'rgba(66, 66, 66, 0.541176)',
@@ -45,7 +32,7 @@ const arrowStyle = {
 }
 
 class MediaBox extends React.PureComponent {
-  constructor(props) {
+  constructor (props) {
     super(props)
 
     this.state = {
@@ -139,7 +126,7 @@ class MediaBox extends React.PureComponent {
     }
   }
 
-  renderContainer(args) {
+  renderContainer (args) {
     const { list, box, ipcRenderer, height, width, full, imgStyle } = args
     if (!this.centerItem) {
       this.centerItem = list[0]
@@ -207,41 +194,41 @@ class MediaBox extends React.PureComponent {
 
         {/* left Button */}
         { list.length > 1 && full &&
-            <IconButton
-              style={Object.assign({
-                left: '2%',
-                opacity: this.currentIndex && 1
-              }, arrowStyle)}
-              hoveredStyle={{ backgroundColor: 'rgba(255,255,255,.09)' }}
-              onTouchTap={(e) => { this.changeIndex('left'); e.preventDefault(); e.stopPropagation() }}
-            >
-              <svg width={24} height={24} viewBox="0 0 24 24" fill="white">
-                <path d="M15.41 16.09l-4.58-4.59 4.58-4.59L14 5.5l-6 6 6 6z" />
-              </svg>
-            </IconButton>
+        <IconButton
+          style={Object.assign({
+            left: '2%',
+            opacity: this.currentIndex && 1
+          }, arrowStyle)}
+          hoveredStyle={{ backgroundColor: 'rgba(255,255,255,.09)' }}
+          onTouchTap={(e) => { this.changeIndex('left'); e.preventDefault(); e.stopPropagation() }}
+        >
+          <svg width={24} height={24} viewBox="0 0 24 24" fill="white">
+            <path d="M15.41 16.09l-4.58-4.59 4.58-4.59L14 5.5l-6 6 6 6z" />
+          </svg>
+        </IconButton>
         }
 
         {/* right Button */}
         { list.length > 1 && full &&
-            <IconButton
-              style={Object.assign({
-                right: '2%',
-                opacity: this.currentIndex < this.props.items.length - 1 ? 1 : 0
-              }, arrowStyle)}
-              hoveredStyle={{ backgroundColor: 'rgba(255,255,255,.18)' }}
-              onTouchTap={(e) => { this.changeIndex('right'); e.preventDefault(); e.stopPropagation() }}
-            >
-              <svg width={24} height={24} viewBox="0 0 24 24" fill="white">
-                <path d="M8.59 16.34l4.58-4.59-4.58-4.59L10 5.75l6 6-6 6z" />
-              </svg>
-            </IconButton>
+        <IconButton
+          style={Object.assign({
+            right: '2%',
+            opacity: this.currentIndex < this.props.items.length - 1 ? 1 : 0
+          }, arrowStyle)}
+          hoveredStyle={{ backgroundColor: 'rgba(255,255,255,.18)' }}
+          onTouchTap={(e) => { this.changeIndex('right'); e.preventDefault(); e.stopPropagation() }}
+        >
+          <svg width={24} height={24} viewBox="0 0 24 24" fill="white">
+            <path d="M8.59 16.34l4.58-4.59-4.58-4.59L10 5.75l6 6-6 6z" />
+          </svg>
+        </IconButton>
         }
 
       </div>
     )
   }
 
-  renderGridView(args) {
+  renderGridView (args) {
     const { list, box, ipcRenderer, height, width } = args
     return (
       <div
@@ -260,7 +247,7 @@ class MediaBox extends React.PureComponent {
     )
   }
 
-  renderFile(args) {
+  renderFile (args) {
     const { list, height, width, transition, full, box } = args
     return (
       <div style={{ height, width, transition, position: 'relative' }}>
@@ -298,7 +285,6 @@ class MediaBox extends React.PureComponent {
               const [h, w] = [props.height, props.width]
               return (
                 <ScrollBar
-                  style={{ outline: 'none' }}
                   allHeight={40 * list.length}
                   height={h - 40}
                   width={w}
@@ -339,13 +325,12 @@ class MediaBox extends React.PureComponent {
     )
   }
 
-  render() {
+  render () {
     // console.log('MediaBox', this.props)
-    const { data, i, handleSelect, ipcRenderer } = this.props
+    const { data, ipcRenderer } = this.props
     const { height, top, left, selected, tsd, wd, content } = data
-    const { type, comment, index, author, list, uuid, box, ctime, wxToken } = content
+    const { author, list, uuid, box, ctime, wxToken } = content
     const isMedia = list && list.every(l => l.metadata)
-    const isMany = list && list.length > 6
     const hovered = this.state.hover
     const mediaArgs = {
       list,
@@ -432,7 +417,7 @@ class MediaBox extends React.PureComponent {
           }}
         >
           { !isMedia ? this.renderFile(fileArgs)
-              : this.state.gridView && selected ? this.renderGridView(mediaArgs)
+            : this.state.gridView && selected ? this.renderGridView(mediaArgs)
               : this.renderContainer(mediaArgs) }
         </div>
 

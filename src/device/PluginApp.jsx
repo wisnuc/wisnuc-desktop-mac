@@ -1,16 +1,10 @@
 import React from 'react'
 import i18n from 'i18n'
-import Debug from 'debug'
-import prettysize from 'prettysize'
-import { CircularProgress, Divider, Toggle, RaisedButton, Avatar } from 'material-ui'
-import InfoIcon from 'material-ui/svg-icons/action/info-outline'
-import FlatButton from '../common/FlatButton'
+import { CircularProgress, Toggle, Avatar } from 'material-ui'
 import { SambaIcon, MiniDLNAIcon, BTDownloadIcon } from '../common/Svg'
 
-const debug = Debug('component:control:SettingsApp:')
-
 class PluginApp extends React.Component {
-  constructor(props) {
+  constructor (props) {
     super(props)
 
     this.state = {
@@ -43,7 +37,7 @@ class PluginApp extends React.Component {
     }
   }
 
-  renderRow({ key, Icon, title, text, enabled, func, bgColor }) {
+  renderRow ({ key, Icon, title, text, enabled, func, bgColor }) {
     const isWIP = this.state.loading === key
     return (
       <div key={title} >
@@ -75,7 +69,7 @@ class PluginApp extends React.Component {
     )
   }
 
-  render() {
+  render () {
     const { dlna, samba, bt } = this.props
     if (!dlna || !samba) return (<div />)
     // console.log('plugin this.props', this.props)

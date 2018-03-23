@@ -1,14 +1,11 @@
 import React from 'react'
-import ReactDom from 'react-dom'
 import i18n from 'i18n'
-import Debug from 'debug'
-import { List, AutoSizer } from 'react-virtualized'
+import { AutoSizer } from 'react-virtualized'
 import RenderListByRow from './RenderListByRow'
 import getPhotoInfo from './getPhotoInfo'
 import getTimeline from './getTimeline'
 import ScrollBar from '../common/ScrollBar'
 
-const debug = Debug('component:photoApp:PhotoList')
 const timelineMargin = 26
 
 const mousePosition = (ev) => {
@@ -22,7 +19,7 @@ const mousePosition = (ev) => {
 }
 
 class PhotoList extends React.Component {
-  constructor(props) {
+  constructor (props) {
     super(props)
 
     this.headerHeight = this.props.headerHeight
@@ -35,21 +32,19 @@ class PhotoList extends React.Component {
     }
 
     this.showDateBar = (op) => {
-      // debug('this.showDateBar', op)
       this.hover = op
       if (this.refDateBox) this.refDateBox.style.opacity = op ? 0.87 : 0
       if (this.refTimeline) this.refTimeline.style.opacity = op ? 1 : 0
     }
 
     this.onScroll = ({ scrollTop }) => {
-      if (!this.photoMapDates.length) return
+      this.currentScrollTop = scrollTop
       const currentIndex = this.indexHeightSum.findIndex(data => data > scrollTop + this.indexHeightSum[0] * 0.9)
-      console.log('currentIndex', currentIndex, scrollTop, this.indexHeightSum)
+      if (!this.photoMapDates.length || currentIndex < 0) return
       const percentage = scrollTop / this.maxScrollTop
       this.date = this.photoMapDates[currentIndex].date
       this.currentDigest = this.photoMapDates[currentIndex].photos[0].hash
       if (!this.firstScroll) this.props.memoize({ currentDigest: this.currentDigest, currentScrollTop: scrollTop })
-      // debug('this.props.memoize()', this.props.memoize(), currentIndex, this.indexHeightSum[0])
 
       /* forceUpdate when first two scroll, this is necessary to show timeline */
       if (this.firstScroll) {
@@ -72,7 +67,6 @@ class PhotoList extends React.Component {
         this.refDateBox.innerHTML = this.date
 
         /* show timeline */
-        // debug('show timeline', this.timeline)
         this.refTimeline.style.opacity = 1
 
         /* hide dateBarFollowMouse */
@@ -99,7 +93,6 @@ class PhotoList extends React.Component {
       if (top > this.height - timelineMargin) top = this.height - timelineMargin
 
       if (this.onMouseDown || ((x > this.width - 96 && y > this.headerHeight) && this.hover)) {
-        // debug('this.onMouseMove')
         /* showTimeline and clear setTimeout */
         this.showDateBar(true)
         clearTimeout(this.time)
@@ -107,7 +100,7 @@ class PhotoList extends React.Component {
         /* calculate position and percentage */
         let position = y - this.headerHeight
         if (position < 0) position = 0
-        const percentage = Math.round(position / this.height * 1000)
+        const percentage = Math.min(1000, Math.round(position / this.height * 1000))
 
         /* convert currentScrollTop to currentIndex */
         const currentScrollTop = Math.round((this.maxScrollTop * percentage / 1000))
@@ -128,7 +121,7 @@ class PhotoList extends React.Component {
           this.refBarFollowMouse.style.opacity = 1
           this.refBarFollowMouse.style.top = `${top}px`
 
-          this.scrollTop = currentScrollTop
+          this.mouseScrollTop = currentScrollTop
           if (this.onMouseDown) {
             this.scrollToPosition()
           }
@@ -140,32 +133,35 @@ class PhotoList extends React.Component {
     }
 
     this.scrollToPosition = () => {
-      if (this.refList) this.refList.scrollToPosition(this.scrollTop)
+      if (!this.refList) return
+      this.currentScrollTop = this.mouseScrollTop
+      this.refList.scrollToPosition(this.mouseScrollTop)
     }
 
     this.onMouseUp = () => (this.onMouseDown = false)
   }
 
-  componentDidMount() {
+  componentDidMount () {
     document.addEventListener('mousemove', this.onMouseMove)
     document.addEventListener('mouseup', this.onMouseUp)
   }
 
-  componentDidUpdate() {
-    this.onScroll({ scrollTop: this.scrollTop || 0 })
+  componentDidUpdate () {
+    this.onScroll({ scrollTop: this.currentScrollTop || 0 })
   }
 
-  componentWillUnmount() {
+  componentWillUnmount () {
     clearTimeout(this.time)
     clearTimeout(this.timeRenderLater)
     document.removeEventListener('mousemove', this.onMouseMove)
     document.removeEventListener('mouseup', this.onMouseUp)
   }
 
-  renderTimeline() {
+  renderTimeline () {
     if (!this.timeline) return (<div />)
     return (
       <div
+        role="presentation"
         ref={ref => (this.refBackground = ref)}
         style={{ position: 'fixed', height: `calc(100% - ${this.headerHeight}px)`, width: 80, right: 16, top: this.headerHeight }}
         onMouseLeave={() => !this.onMouseDown && this.showDateBar(false)}
@@ -265,8 +261,7 @@ class PhotoList extends React.Component {
     )
   }
 
-  render() {
-    // debug('render PhotoList, this.props', this.props)
+  render () {
     return (
       <div
         style={{
@@ -283,7 +278,6 @@ class PhotoList extends React.Component {
           {({ height, width }) => {
             /* get PhotoInfo */
             const PhotoInfo = getPhotoInfo(height, width, this.props.media, i18n.__('Date Unknown Text'))
-            // debug('PhotoInfo', PhotoInfo)
 
             /* set global variant */
             this.height = height
@@ -349,7 +343,6 @@ class PhotoList extends React.Component {
                     onScroll={this.onScroll}
                     scrollTop={previousScrollTop}
                     overscanRowCount={2}
-                    style={{ outline: 'none' }}
                   />
                 </div>
                 { !this.props.hideTimeline && this.renderTimeline() }

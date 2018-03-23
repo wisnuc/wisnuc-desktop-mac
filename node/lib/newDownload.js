@@ -1,12 +1,12 @@
-import fs from 'fs'
-import i18n from 'i18n'
-import path from 'path'
-import UUID from 'uuid'
-import store from './store'
-import { getMainWindow } from './window'
-import { ipcMain, shell } from 'electron'
-import { downloadFile } from './server'
-import { createTask } from './downloadTransform'
+const fs = require('fs')
+const i18n = require('i18n')
+const path = require('path')
+const UUID = require('uuid')
+const store = require('./store')
+const { getMainWindow } = require('./window')
+const { ipcMain, shell } = require('electron')
+const { downloadFile } = require('./server')
+const { createTask } = require('./downloadTransform')
 
 const getDownloadPath = () => store.getState().config.downloadPath
 
@@ -21,7 +21,7 @@ const downloadHandle = (event, args) => {
   fs.readdir(downloadPath, (err, files) => {
     if (err) {
       console.log('downloadHandle fs.readdir error: ', err)
-      getMainWindow().webContents.send('snackbarMessage', { message: i18n.__('Read Download Failed')})
+      getMainWindow().webContents.send('snackbarMessage', { message: i18n.__('Read Download Failed') })
     } else {
       entries.forEach((entry) => {
         const name = entry.name
@@ -46,25 +46,26 @@ const downloadHandle = (event, args) => {
   })
 }
 
+/* args: { driveUUID, dirUUID, entryUUID, fileName, station } */
 const openHandle = (event, args) => {
-  const { driveUUID, dirUUID, entryUUID, fileName } = args
-  downloadFile(driveUUID, dirUUID, entryUUID, fileName, null, (error, filePath) => {
+  downloadFile(args, null, (error, filePath) => {
     if (error) console.log('open file error', error)
     else shell.openItem(filePath)
   })
 }
 
+/* args: { driveUUID, dirUUID, entryUUID, fileName, session, station } */
 const tempDownloadHandle = (e, args) => {
-  const { session, driveUUID, dirUUID, entryUUID, fileName } = args
-  downloadFile(driveUUID, dirUUID, entryUUID, fileName, null, (error, filePath) => {
+  const { session } = args
+  downloadFile(args, null, (error, filePath) => {
     if (error) console.log('temp Download error', error)
     else getMainWindow().webContents.send('TEMP_DOWNLOAD_SUCCESS', session, filePath)
   })
 }
 
 const getTextDataHandle = (e, args) => {
-  const { session, driveUUID, dirUUID, entryUUID, fileName } = args
-  downloadFile(driveUUID, dirUUID, entryUUID, fileName, null, (error, filePath) => {
+  const { session } = args
+  downloadFile(args, null, (error, filePath) => {
     if (error) console.log('getTextDataHandle error', error)
     else {
       fs.readFile(filePath, (err, data) => {
@@ -77,10 +78,12 @@ const getTextDataHandle = (e, args) => {
 
 const startTransmissionHandle = () => {
   global.DB.loadAll((error, tasks) => {
-    if (error) return console.log('load db store error', error)
-    /* add t to load pre status */
-    tasks.forEach(t => t.state !== 'finished' && t.trsType === 'download' &&
-      createTask(t.uuid, t.entries, t.name, t.dirUUID, t.driveUUID, t.taskType, t.createTime, false, t.downloadPath, t))
+    if (error) console.error('load db store error', error)
+    else {
+      /* add t to load pre status */
+      tasks.forEach(t => t.state !== 'finished' && t.trsType === 'download' &&
+        createTask(t.uuid, t.entries, t.name, t.dirUUID, t.driveUUID, t.taskType, t.createTime, false, t.downloadPath, t))
+    }
   })
 }
 

@@ -1,16 +1,15 @@
-import fs from 'original-fs'
-import i18n from 'i18n'
-import path from 'path'
-import { dialog, ipcMain } from 'electron'
-import { getMainWindow } from './window'
-import { boxUploadAsync } from './server'
-import hashFileAsync from './filehash'
-import { fileMagicAsync } from './magic'
+const path = require('path')
+const Promise = require('bluebird')
+const { dialog, ipcMain } = require('electron')
+const fs = Promise.promisifyAll(require('original-fs')) // eslint-disable-line
 
-Promise.promisifyAll(fs) // babel would transform Promise to bluebird
+const { getMainWindow } = require('./window')
+const { boxUploadAsync } = require('./server')
+const hashFileAsync = require('./filehash')
+const { fileMagicAsync } = require('./magic')
 
 /* only read files */
-const readAsync = async (entries, args) => {
+const readAsync = async (entries) => {
   const files = []
   const fakeList = []
   for (let i = 0; i < entries.length; i++) {
@@ -35,28 +34,48 @@ const readAsync = async (entries, args) => {
 /* handler */
 const uploadHandle = (event, args) => {
   const { session, box } = args
-  const boxUUID = box.uuid
   // only allow upload single File
   // const dialogType = type === 'directory' ? 'openDirectory' : 'openFile'
   // dialog.showOpenDialog(getMainWindow(), { properties: [dialogType, 'multiSelections'] }, (entries) => {
   dialog.showOpenDialog(getMainWindow(), { properties: ['openFile'] }, (entries) => {
     if (!entries || !entries.length) return
-    readAsync(entries, args)
+    readAsync(entries)
       .then(({ fakeList, files }) => {
-        getMainWindow().webContents.send('BOX_UPLOAD_FAKE_DATA', { session, boxUUID, success: true, fakeList })
+        getMainWindow().webContents.send('BOX_UPLOAD_FAKE_DATA', {
+          session, box, success: true, fakeList, raw: { type: 'local', args, entries }
+        })
         boxUploadAsync(files, args)
-          .then(() => {
-            getMainWindow().webContents.send('BOX_UPLOAD_RESULT', { session, boxUUID, success: true })
+          .then((data) => {
+            getMainWindow().webContents.send('BOX_UPLOAD_RESULT', { session, box, success: true, data })
           }).catch((err) => {
             const body = err && err.response && err.response.body
             console.log('box upload error', body || err)
-            getMainWindow().webContents.send('BOX_UPLOAD_RESULT', { session, boxUUID, success: false })
+            getMainWindow().webContents.send('BOX_UPLOAD_RESULT', { session, box, success: false })
           })
       }).catch(() => {
-        getMainWindow().webContents.send('BOX_UPLOAD_FAKE_DATA', { session, boxUUID, success: false })
+        getMainWindow().webContents.send('BOX_UPLOAD_FAKE_DATA', { session, box, success: false })
       })
   })
 }
 
+const retryHandle = (event, props) => {
+  const { args, entries } = props
+  const { session, box } = args
+  readAsync(entries, args)
+    .then(({ files }) => {
+      boxUploadAsync(files, args)
+        .then((data) => {
+          getMainWindow().webContents.send('BOX_UPLOAD_RESULT', { session, box, success: true, data })
+        }).catch((err) => {
+          const body = err && err.response && err.response.body
+          console.log('box upload error', body || err)
+          getMainWindow().webContents.send('BOX_UPLOAD_RESULT', { session, box, success: false })
+        })
+    }).catch(() => {
+      getMainWindow().webContents.send('BOX_UPLOAD_FAKE_DATA', { session, box, success: false })
+    })
+}
+
 /* ipc listener */
 ipcMain.on('BOX_UPLOAD', uploadHandle)
+ipcMain.on('BOX_RETRY_UPLOAD', retryHandle)

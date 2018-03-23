@@ -5,7 +5,7 @@ import i18n from 'i18n'
  * @return { String } i18n message
 */
 
-export function xcopyMsg(props) {
+export const xcopyMsg = (props) => {
   const getName = (node) => {
     let name
     switch (node.type) {
@@ -32,3 +32,5 @@ export function xcopyMsg(props) {
   const target = entries.length > 1 ? i18n.__('%s Items Have Been', entries.length) : i18n.__('%s Has Been', getName(entries[0]))
   return i18n.__('xcopyMsg {{action}} {{srcName}} {{dstName}} {{target}}', { action, srcName, dstName, target })
 }
+
+export const i18nMsg = key => i18n.__(key)
