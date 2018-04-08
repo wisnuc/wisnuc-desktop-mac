@@ -13,6 +13,7 @@ import ListSelect from './ListSelect'
 import sortByType from '../common/sort'
 import { BreadCrumbItem, BreadCrumbSeparator } from '../common/BreadCrumb'
 import ScrollBar from '../common/ScrollBar'
+import { chunk } from '../common/array'
 import Row from './Row'
 
 class SelectNas extends React.Component {
@@ -59,18 +60,21 @@ class SelectNas extends React.Component {
     }
 
     this.fire = () => {
-      const args = {
-        comment: this.state.comment || '',
-        type: 'list',
-        boxUUID: this.props.boxUUID,
-        stationId: this.props.stationId,
-        isMedia: [...this.selected].every(([k, v]) => !!v.metadata),
-        list: [...this.selected].map(([k, v]) => ({
-          type: 'file', filename: v.name, driveUUID: v.driveUUID, dirUUID: v.dirUUID, nasMedia: !!v.metadata, sha256: v.hash
-        }))
-      }
+      const arr = chunk([...this.selected], 105)
+      arr.forEach((selected) => {
+        const args = {
+          comment: this.state.comment || '',
+          type: 'list',
+          boxUUID: this.props.boxUUID,
+          stationId: this.props.stationId,
+          isMedia: selected.every(([k, v]) => !!v.metadata),
+          list: selected.map(([k, v]) => ({
+            type: 'file', filename: v.name, driveUUID: v.driveUUID, dirUUID: v.dirUUID, nasMedia: !!v.metadata, sha256: v.hash
+          }))
+        }
+        this.props.createNasTweets(args)
+      })
       this.props.onRequestClose()
-      this.props.createNasTweets(args)
     }
 
     /* enter dir */
@@ -359,7 +363,7 @@ class SelectNas extends React.Component {
                 <Avatar src={currentUser.avatarUrl} size={40} />
               </div>
               <div style={{ width: 16 }} />
-              <div style={{ width: 100 }}>
+              <div style={{ width: 240 }}>
                 { currentUser.nickName }
               </div>
             </div>
