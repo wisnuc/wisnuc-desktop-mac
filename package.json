@@ -37,7 +37,7 @@
     "babel-register": "^6.26.0",
     "chai": "^4.1.2",
     "css-loader": "^0.28.7",
-    "electron": "^1.7.9",
+    "electron": "^9.1.0",
     "electron-builder": "^19.37.2",
     "electron-packager": "^9.1.0",
     "electron-rebuild": "^1.6.0",
